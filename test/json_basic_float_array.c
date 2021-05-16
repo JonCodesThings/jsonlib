@@ -10,9 +10,9 @@ int main()
 	const char* str = "{\"array\":[3.14,27.3245,77.43535678]}";
 
 	InitAllocatorContext();
-	SetJSONAllocator(Allocate, Deallocate);
+	JSONLIB_SetAllocator(Allocate, Deallocate);
 
-	JSON* json = ParseJSON(str, (u32)strlen(str));
+	JSON* json = JSONLIB_ParseJSON(str, (u32)strlen(str));
 
 	assert(json != NULL);
 
@@ -24,12 +24,12 @@ int main()
 
 	assert(!strcmp(array->name, "array"));
 
-	const char* jsonStr = MakeJSON(json, false);
+	const char* jsonStr = JSONLIB_MakeJSON(json, false);
 
 	if (strcmp(str, jsonStr))
 	{
-		FreeJSON(json);
-		json = ParseJSON(jsonStr, (u32)strlen(jsonStr));
+		JSONLIB_FreeJSON(json);
+		json = JSONLIB_ParseJSON(jsonStr, (u32)strlen(jsonStr));
 		array = json->values[0];
 		assert(array->values[0]->decimal == 3.14f);
 		assert(array->values[1]->decimal == 27.3245f);
@@ -38,7 +38,7 @@ int main()
 
 	Deallocate(jsonStr);
 
-	FreeJSON(json);
+	JSONLIB_FreeJSON(json);
 
 	assert(allocations == 0);
 

@@ -10,9 +10,9 @@ int main()
 	const char* str = "{\"float\":0.14}";
 
 	InitAllocatorContext();
-	SetJSONAllocator(Allocate, Deallocate);
+	JSONLIB_SetAllocator(Allocate, Deallocate);
 
-	JSON* json = ParseJSON(str, (u32)strlen(str));
+	JSON* json = JSONLIB_ParseJSON(str, (u32)strlen(str));
 
 	assert(json != NULL);
 
@@ -22,18 +22,18 @@ int main()
 
 	assert(json->values[0]->decimal == 0.14f);
 
-	const char* jsonStr = MakeJSON(json, false);
+	const char* jsonStr = JSONLIB_MakeJSON(json, false);
 
 	if (strcmp(str, jsonStr))
 	{
-		FreeJSON(json);
-		json = ParseJSON(jsonStr, (u32)strlen(jsonStr));
+		JSONLIB_FreeJSON(json);
+		json = JSONLIB_ParseJSON(jsonStr, (u32)strlen(jsonStr));
 		assert(json->values[0]->decimal == 0.14f);
 	}
 
 	Deallocate(jsonStr);
 
-	FreeJSON(json);
+	JSONLIB_FreeJSON(json);
 
 	assert(allocations == 0);
 

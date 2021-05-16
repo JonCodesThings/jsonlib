@@ -80,26 +80,26 @@ typedef struct JSON
 
 // NOTE: @Jon
 // Sets the internal allocation functions that the library will use to allocate/free memory
-void SetJSONAllocator(JSON_ALLOC alloc, JSON_DEALLOC dealloc);
+void JSONLIB_SetAllocator(JSON_ALLOC alloc, JSON_DEALLOC dealloc);
 
 // NOTE: @Jon
 // Parses a JSON string
-JSON *ParseJSON(const char *jsonString, u32 stringLength);
+JSON *JSONLIB_ParseJSON(const char *jsonString, u32 stringLength);
 
 // NOTE: @Jon
 // Constructs a JSON string from a given tree
-const char *MakeJSON(const JSON *const json, const bool humanReadable);
+const char *JSONLIB_MakeJSON(const JSON *const json, const bool humanReadable);
 
 // NOTE: @Jon
 // Adds a node as a child of another node
-void AddValueJSON(JSON *json, JSON *val);
+void JSONLIB_AddValueJSON(JSON *json, JSON *val);
 
 // NOTE: @Jon
 // Gets a value by name from a given node
-JSON *GetValueJSON(const char *name, u32 nameLength, JSON *json);
+JSON *JSONLIB_GetValueJSON(const char *name, u32 nameLength, JSON *json);
 
 // NOTE: @Jon
 // Frees memory associated with a given node and all of its children
-void FreeJSON(JSON *json);
+void JSONLIB_FreeJSON(JSON *json);
 
 #endif

@@ -148,7 +148,7 @@ static void ParseValue(JSON_TOKEN *token, const char *value, u32 valueLength)
 
 // NOTE: @Jon
 // Adds a value to the JSON node given
-void AddValueJSON(JSON *json, JSON *val)
+void JSONLIB_AddValueJSON(JSON *json, JSON *val)
 {
 	json->valueCount++;
 
@@ -202,7 +202,7 @@ static u32 GetCloserOffset(JSON_TOKEN *token, u32 startToken, u32 tokenCount, JS
 // Convenience function for adding a new value to an array that's being parsed
 static void AddValueToArray(JSON** json)
 {
-	AddValueJSON((*json), NULL);
+	JSONLIB_AddValueJSON((*json), NULL);
 	JSON* newVal = (JSON*)allocate(sizeof(JSON));
 	newVal->parent = (*json);
 	assert((*json)->values != NULL);
@@ -505,7 +505,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 
 			if (json->tags & JSON_ARRAY_TAG)
 			{
-				AddValueJSON(json, NULL);
+				JSONLIB_AddValueJSON(json, NULL);
 				JSON* newVal = (JSON*)allocate(sizeof(JSON));
 				newVal->parent = json;
 				assert(json->values != NULL);
@@ -546,7 +546,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 		{
 			// Allocate a node for this identifier
 			JSON *val = (JSON*)allocate(sizeof(JSON));
-			AddValueJSON (json, val);
+			JSONLIB_AddValueJSON (json, val);
 			assert(json->values != NULL);
 			json = val;
 
@@ -606,13 +606,13 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 	if (finished)
 		return json;
 
-	FreeJSON(json);
+	JSONLIB_FreeJSON(json);
 	return NULL;
 }
 
 // NOTE: @Jon
 // Sets the allocation functions for the library to use internally
-void SetJSONAllocator(JSON_ALLOC alloc, JSON_DEALLOC dealloc)
+void JSONLIB_SetAllocator(JSON_ALLOC alloc, JSON_DEALLOC dealloc)
 {
 	allocate = alloc;
 	deallocate = dealloc;
@@ -635,7 +635,7 @@ static void FreeTokenAndStackMemory(JSON_TOKENS *tokens, JSON_DIVIDER_STACK *sta
 
 // NOTE: @Jon
 // Parses a JSON string
-JSON *ParseJSON(const char *jsonString, u32 stringLength)
+JSON *JSONLIB_ParseJSON(const char *jsonString, u32 stringLength)
 {
 	JSON_DIVIDER_STACK stack;
 	stack.dividerStack = (char*)allocate(sizeof(char) * JSON_DEFAULT_DIVIDER_STACK_SIZE);
@@ -838,7 +838,7 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 
 // NOTE: @Jon
 // Makes a JSON string from a given tree input
-const char * MakeJSON(const JSON * const json, const bool humanReadable)
+const char * JSONLIB_MakeJSON(const JSON * const json, const bool humanReadable)
 {
 	JSON_STRING_STRUCT jsonString;
 	jsonString.capacity = 64;
@@ -863,7 +863,7 @@ const char * MakeJSON(const JSON * const json, const bool humanReadable)
 
 // NOTE: @Jon
 // Gets a node from a given tree
-JSON *GetValueJSON(const char *name, u32 nameLength, JSON *json)
+JSON *JSONLIB_GetValueJSON(const char *name, u32 nameLength, JSON *json)
 {
 	assert(json != NULL);
 	for (u32 i = 0; i < json->valueCount; ++i)
@@ -876,7 +876,7 @@ JSON *GetValueJSON(const char *name, u32 nameLength, JSON *json)
 
 // NOTE: @Jon
 // Frees memory related to a given tree
-void FreeJSON(JSON *json)
+void JSONLIB_FreeJSON(JSON *json)
 {
 	if (json == NULL)
 		return;
@@ -895,7 +895,7 @@ void FreeJSON(JSON *json)
 
 	for (u32 i = 0; i < json->valueCount; ++i)
 	{
-		FreeJSON(json->values[i]);
+		JSONLIB_FreeJSON(json->values[i]);
 	}
 
 	if (json->name)

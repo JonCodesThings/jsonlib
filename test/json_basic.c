@@ -11,19 +11,19 @@ int main()
 	const char *str = "{}";
 
 	InitAllocatorContext();
-	SetJSONAllocator(Allocate, Deallocate);
+	JSONLIB_SetAllocator(Allocate, Deallocate);
 
-	JSON *json = ParseJSON(str, (u32)strlen(str));
+	JSON *json = JSONLIB_ParseJSON(str, (u32)strlen(str));
 	
 	assert(json != NULL);
 
-	const char* jsonStr = MakeJSON(json, false);
+	const char* jsonStr = JSONLIB_MakeJSON(json, false);
 
 	assert(!strcmp(str, jsonStr));
 
 	Deallocate(jsonStr);
 
-	FreeJSON(json);
+	JSONLIB_FreeJSON(json);
 
 	assert(allocations == 0);
 
