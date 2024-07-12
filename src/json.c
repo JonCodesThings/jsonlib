@@ -131,7 +131,7 @@ static void ParseValue(JSON_TOKEN *token, const char *value, u32 valueLength)
 		token->type = INTEGER;
 	}
 	// If it's a boolean value
-	else if ((value[0] == 't' || value[0] == 'f') && (value[valueLength] == 'e'))
+	else if ((value[0] == 't' && (value[3] == 'e')) || (value[0] == 'f'&& (value[4] == 'e')))
 	{
 		if (value[0] == 't')
 			token->type = JSON_TRUE;
@@ -144,6 +144,70 @@ static void ParseValue(JSON_TOKEN *token, const char *value, u32 valueLength)
 	// Otherwise give up
 	else
 		token->type = JSON_ERROR;
+}
+
+// NOTE: @Jon
+// Allocates a JSON node
+// Uses the allocation functions specified with JSONLIB_SetAllocator
+JSON* JSONLIB_AllocateJSON(const char* name, struct JSON* parent)
+{
+	JSON* node = allocate(sizeof(JSON));
+	node->name = name;
+	node->parent = NULL;
+	node->values = NULL;
+	node->valueCount = 0;
+	node->tags = JSON_OBJECT_TAG;
+	
+	if (parent != NULL)
+	{
+		JSONLIB_AddValueJSON(parent, node);
+	}
+	
+	return node;
+}
+
+// NOTE: @Jon
+// Allocates a JSON node
+// Uses the allocation functions specified with JSONLIB_SetAllocator
+JSON* JSONLIB_AllocateIntegerJSON(const char* name, struct JSON* parent, const i32 integer)
+{
+	JSON* node = JSONLIB_AllocateJSON(name, parent);
+	node->integer = integer;
+	node->tags = JSON_INTEGER_TAG;
+	return node;
+}
+
+// NOTE: @Jon
+// Allocates a JSON node
+// Uses the allocation functions specified with JSONLIB_SetAllocator
+JSON* JSONLIB_AllocateDecimalJSON(const char* name, struct JSON* parent, const f32 decimal)
+{
+	JSON* node = JSONLIB_AllocateJSON(name, parent);
+	node->decimal = decimal;
+	node->tags = JSON_DECIMAL_TAG;
+	return node;
+}
+
+// NOTE: @Jon
+// Allocates a JSON node
+// Uses the allocation functions specified with JSONLIB_SetAllocator
+JSON* JSONLIB_AllocateStringJSON(const char* name, struct JSON* parent, const char* string)
+{
+	JSON* node = JSONLIB_AllocateJSON(name, parent);
+	node->string = string;
+	node->tags = JSON_STRING_TAG;
+	return node;
+}
+
+// NOTE: @Jon
+// Allocates a JSON node
+// Uses the allocation functions specified with JSONLIB_SetAllocator
+JSON* JSONLIB_AllocateBooleanJSON(const char* name, struct JSON* parent, const bool boolean)
+{
+	JSON* node = JSONLIB_AllocateJSON(name, parent);
+	node->boolean = boolean;
+	node->tags = JSON_BOOLEAN_TAG;
+	return node;
 }
 
 // NOTE: @Jon
@@ -173,6 +237,17 @@ void JSONLIB_AddValueJSON(JSON *json, JSON *val)
 
 static void DividerStackPush(JSON_DIVIDER_STACK *const stack, const char toPush)
 {
+	if (stack->dividerCount + 1 >= stack->dividerCapacity)
+	{
+		char *expanded = (char*)allocate(sizeof(char) * stack->dividerCapacity * 2);
+
+		assert(expanded != NULL);
+
+		memcpy(expanded, stack->dividerStack, sizeof(char) * stack->dividerCount);
+		stack->dividerCapacity *= 2;
+		deallocate(stack->dividerStack);
+		stack->dividerStack = expanded;
+	}
 	stack->dividerStack[stack->dividerCount++] = toPush;
 }
 
@@ -297,25 +372,25 @@ static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength, JSON_DIVI
 			// Fairly standard JSON character handling
 		case '{':
 			container->tokens[container->tokenCount++].type = LEFT_BRACE;
-			dividerStack->dividerStack[dividerStack->dividerCount++] = jsonString[i];
+			DividerStackPush(dividerStack, jsonString[i]);
 			break;
 		case '}':
 			container->tokens[container->tokenCount++].type = RIGHT_BRACE;
-			dividerStack->dividerCount--;
+			DividerStackPop(dividerStack);
 			break;
 		case '[':
 			container->tokens[container->tokenCount++].type = LEFT_SQUARE_BRACKET;
-			dividerStack->dividerStack[dividerStack->dividerCount++] = jsonString[i];
+			DividerStackPush(dividerStack, jsonString[i]);
 			break;
 		case ']':
 			container->tokens[container->tokenCount++].type = RIGHT_SQUARE_BRACKET;
-			dividerStack->dividerCount--;
+			DividerStackPop(dividerStack);
 			break;
 		case '"':
 			if (dividerStack->dividerStack[dividerStack->dividerCount - 1] == '"')
 				dividerStack->dividerCount--;
 			else
-				dividerStack->dividerStack[dividerStack->dividerCount++] = jsonString[i];
+				DividerStackPush(dividerStack, jsonString[i]);
 			break;
 		case ':':
 			container->tokens[container->tokenCount++].type = COLON;
@@ -451,7 +526,7 @@ static bool CorrectTokens(JSON_TOKENS* tokens, JSON_DIVIDER_STACK* dividerStack)
 
 		if (current->type == IDENTIFIER)
 		{
-			if (dividerStack->dividerCount - 1 > 0 && next != NULL)
+			if (dividerStack->dividerCount != 0 && next != NULL)
 			{
 				if (dividerStack->dividerStack[dividerStack->dividerCount - 1] == '[' && next->type != COLON)
 					current->type = STRING;

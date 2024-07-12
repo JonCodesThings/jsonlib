@@ -91,6 +91,32 @@ JSON *JSONLIB_ParseJSON(const char *jsonString, u32 stringLength);
 const char *JSONLIB_MakeJSON(const JSON *const json, const bool humanReadable);
 
 // NOTE: @Jon
+// Allocates a JSON node
+// Uses the allocation functions specified with JSONLIB_SetAllocator
+JSON* JSONLIB_AllocateJSON(const char* name, struct JSON* parent);
+
+// NOTE: @Jon
+// Allocates a JSON node
+// Uses the allocation functions specified with JSONLIB_SetAllocator
+JSON* JSONLIB_AllocateIntegerJSON(const char* name, struct JSON* parent, const i32 integer);
+
+// NOTE: @Jon
+// Allocates a JSON node
+// Uses the allocation functions specified with JSONLIB_SetAllocator
+JSON* JSONLIB_AllocateStringJSON(const char* name, struct JSON* parent, const char* string);
+
+
+// NOTE: @Jon
+// Allocates a JSON node
+// Uses the allocation functions specified with JSONLIB_SetAllocator
+JSON* JSONLIB_AllocateBooleanJSON(const char* name, struct JSON* parent, const bool boolean);
+
+// NOTE: @Jon
+// Allocates a JSON node
+// Uses the allocation functions specified with JSONLIB_SetAllocator
+JSON* JSONLIB_AllocateDecimalJSON(const char* name, struct JSON* parent, f32 decimal);
+
+// NOTE: @Jon
 // Adds a node as a child of another node
 void JSONLIB_AddValueJSON(JSON *json, JSON *val);
 
