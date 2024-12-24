@@ -5,18 +5,18 @@
 
 u32 allocations;
 
-void InitAllocatorContext()
+void InitTESTAllocatorContext()
 {
 	allocations = 0;
 }
 
-void* Allocate(size_t size)
+void* TESTAllocate(size_t size)
 {
 	allocations++;
 	return malloc(size);
 }
 
-void Deallocate(void* ptr)
+void TESTDeallocate(void* ptr)
 {
 	allocations--;
 	free(ptr);

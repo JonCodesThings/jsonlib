@@ -1,10 +1,8 @@
 #include <include/jsonlib/json.h>
 
-#include <ctype.h>
-
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+//#include <stdio.h>
 #include <assert.h>
 
 // TODO: @Jon
@@ -20,13 +18,13 @@
 
 // NOTE: @Jon
 // Tags for JSON nodes
-extern const u8 JSON_STRING_TAG = 1 << 0;
-extern const u8 JSON_INTEGER_TAG = 1 << 1;
-extern const u8 JSON_DECIMAL_TAG = 1 << 2;
-extern const u8 JSON_ARRAY_TAG = 1 << 3;
-extern const u8 JSON_OBJECT_TAG = 1 << 4;
-extern const u8 JSON_BOOLEAN_TAG = 1 << 5;
-extern const u8 JSON_NULL_TAG = 1 << 6;
+const u8 JSON_STRING_TAG = 1 << 0;
+const u8 JSON_INTEGER_TAG = 1 << 1;
+const u8 JSON_DECIMAL_TAG = 1 << 2;
+const u8 JSON_ARRAY_TAG = 1 << 3;
+const u8 JSON_OBJECT_TAG = 1 << 4;
+const u8 JSON_BOOLEAN_TAG = 1 << 5;
+const u8 JSON_NULL_TAG = 1 << 6;
 
 // NOTE: @Jon
 // Some useful strings
@@ -89,15 +87,15 @@ typedef struct JSON_TOKENS
 	u32 tokenCapacity;
 } JSON_TOKENS;
 
-static JSON_ALLOC allocate = malloc;
-static JSON_DEALLOC deallocate = free;
+static JSON_ALLOC JSON_Allocate = malloc;
+static JSON_DEALLOC JSON_Deallocate = free;
 
 // NOTE: @Jon
 // Parses an identifier
 static void ParseIdentifier(JSON_TOKEN *token, const char *ident, u32 valueLength)
 {
 	token->type = IDENTIFIER;
-	token->identifier = (char*)allocate(sizeof(char) * ((size_t)valueLength + 1));
+	token->identifier = (char*)JSON_Allocate(sizeof(char) * ((size_t)valueLength + 1));
 	token->identifier[valueLength] = '\0';
 	memcpy((void*)token->identifier, ident, sizeof(char) * (valueLength));
 }
@@ -110,14 +108,14 @@ static void ParseValue(JSON_TOKEN *token, const char *value, u32 valueLength)
 	if (value[0] == '"' && value[valueLength] == '"')
 	{
 		token->type = STRING;
-		token->identifier = (char*)allocate(sizeof(char) * (valueLength));
+		token->identifier = (char*)JSON_Allocate(sizeof(char) * (valueLength));
 		token->identifier[valueLength - 1] = '\0';
 		memcpy(token->identifier, &value[1], sizeof(char) * (valueLength - 1));
 	}
 	// If it starts with a number
-	else if (isdigit(value[0]) || value[0] == '-')
+	else if ((value[0] > 47 && value[0] < 58) || value[0] == '-')
 	{
-		token->identifier = (char*)allocate(sizeof(char) * ((size_t)valueLength + 1));
+		token->identifier = (char*)JSON_Allocate(sizeof(char) * ((size_t)valueLength + 1));
 		token->identifier[valueLength] = '\0';
 		memcpy(token->identifier, value, sizeof(char) * (valueLength));
 		for (u32 i = 0; i < valueLength; ++i)
@@ -151,7 +149,7 @@ static void ParseValue(JSON_TOKEN *token, const char *value, u32 valueLength)
 // Uses the allocation functions specified with JSONLIB_SetAllocator
 JSON* JSONLIB_AllocateJSON(const char* name, struct JSON* parent)
 {
-	JSON* node = allocate(sizeof(JSON));
+	JSON* node = JSON_Allocate(sizeof(JSON));
 	node->name = name;
 	node->parent = NULL;
 	node->values = NULL;
@@ -220,14 +218,14 @@ void JSONLIB_AddValueJSON(JSON *json, JSON *val)
 		val->parent = json;
 
 	// Allocate the memory
-	JSON **newValueArray = (JSON**)allocate(sizeof(JSON*) * json->valueCount);
+	JSON **newValueArray = (JSON**)JSON_Allocate(sizeof(JSON*) * json->valueCount);
 	assert(newValueArray != NULL);
 
 	// Copy over the old array and free the memory
 	if (json->valueCount - 1 > 0)
 		memcpy(newValueArray, json->values, sizeof(JSON*) * (json->valueCount - 1));
 	if (json->values != NULL)
-		deallocate(json->values);
+		JSON_Deallocate((void*)json->values);
 
 	json->values = newValueArray;
 
@@ -239,13 +237,13 @@ static void DividerStackPush(JSON_DIVIDER_STACK *const stack, const char toPush)
 {
 	if (stack->dividerCount + 1 >= stack->dividerCapacity)
 	{
-		char *expanded = (char*)allocate(sizeof(char) * stack->dividerCapacity * 2);
+		char *expanded = (char*)JSON_Allocate(sizeof(char) * stack->dividerCapacity * 2);
 
 		assert(expanded != NULL);
 
 		memcpy(expanded, stack->dividerStack, sizeof(char) * stack->dividerCount);
 		stack->dividerCapacity *= 2;
-		deallocate(stack->dividerStack);
+		JSON_Deallocate(stack->dividerStack);
 		stack->dividerStack = expanded;
 	}
 	stack->dividerStack[stack->dividerCount++] = toPush;
@@ -278,7 +276,7 @@ static u32 GetCloserOffset(JSON_TOKEN *token, u32 startToken, u32 tokenCount, JS
 static void AddValueToArray(JSON** json)
 {
 	JSONLIB_AddValueJSON((*json), NULL);
-	JSON* newVal = (JSON*)allocate(sizeof(JSON));
+	JSON* newVal = (JSON*)JSON_Allocate(sizeof(JSON));
 	newVal->parent = (*json);
 	assert((*json)->values != NULL);
 	(*json)->values[(*json)->valueCount - 1] = newVal;
@@ -295,7 +293,7 @@ static void AddDecimalValue(JSON **json, const char *decimalStr)
 	(*json)->tags |= JSON_DECIMAL_TAG;
 	(*json)->valueCount = 0;
 	*json = (*json)->parent;
-	deallocate(decimalStr);
+	JSON_Deallocate((void*)decimalStr);
 }
 
 // NOTE: @Jon
@@ -307,7 +305,7 @@ static void AddIntegerValue(JSON **json, const char *integerStr)
 	(*json)->tags |= JSON_INTEGER_TAG;
 	(*json)->valueCount = 0;
 	*json = (*json)->parent;
-	deallocate(integerStr);
+	JSON_Deallocate((void*)integerStr);
 }
 
 // NOTE: @Jon
@@ -347,8 +345,8 @@ static void AddNullValue(JSON** json)
 // Function for tokenising the given input string
 static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength, JSON_DIVIDER_STACK* dividerStack)
 {
-	JSON_TOKENS* container = (JSON_TOKENS*)allocate(sizeof(JSON_TOKENS));
-	container->tokens = (JSON_TOKEN*)allocate(sizeof(JSON_TOKEN) * JSON_DEFAULT_TOKENS);
+	JSON_TOKENS* container = (JSON_TOKENS*)JSON_Allocate(sizeof(JSON_TOKENS));
+	container->tokens = (JSON_TOKEN*)JSON_Allocate(sizeof(JSON_TOKEN) * JSON_DEFAULT_TOKENS);
 	container->tokenCount = 0;
 	container->tokenCapacity = JSON_DEFAULT_TOKENS;
 
@@ -356,11 +354,11 @@ static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength, JSON_DIVI
 	{
 		if (container->tokenCount >= container->tokenCapacity)
 		{
-			JSON_TOKEN* newTokenAlloc = (JSON_TOKEN*)allocate(sizeof(JSON_TOKEN) * container->tokenCapacity * 2);
+			JSON_TOKEN* newTokenAlloc = (JSON_TOKEN*)JSON_Allocate(sizeof(JSON_TOKEN) * container->tokenCapacity * 2);
 			assert(newTokenAlloc != NULL);
 
 			memcpy(newTokenAlloc, container->tokens, sizeof(JSON_TOKEN) * container->tokenCapacity);
-			deallocate(container->tokens);
+			JSON_Deallocate(container->tokens);
 
 			container->tokens = newTokenAlloc;
 			container->tokenCapacity *= 2;
@@ -418,7 +416,7 @@ static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength, JSON_DIVI
 						}
 					}
 				}
-				else if (isdigit(jsonString[i]) || jsonString[i] == '-')
+				else if ((jsonString[i] > 47 && jsonString[i] < 58) || jsonString[i] == '-')
 				{
 					for (u32 iter = i; iter < stringLength; ++iter)
 					{
@@ -470,7 +468,7 @@ static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength, JSON_DIVI
 					divstack = dividerStack->dividerStack[dividerStack->dividerCount - 2] == '[';
 				if (dividerStack->dividerStack[dividerStack->dividerCount - 1] == '[' || divstack)
 				{
-					if (isdigit(jsonString[i]))
+					if (jsonString[i] > 47 && jsonString[i] < 58)
 					{
 						for (u32 iter = i; iter < stringLength; ++iter)
 						{
@@ -545,7 +543,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 	JSON* json = NULL;
 	if ((!(tags & JSON_ARRAY_TAG) && !(tags & JSON_OBJECT_TAG)) || parent == NULL)
 	{
-		json = (JSON*)allocate(sizeof(JSON));
+		json = (JSON*)JSON_Allocate(sizeof(JSON));
 
 		assert(json != NULL);
 
@@ -581,7 +579,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 			if (json->tags & JSON_ARRAY_TAG)
 			{
 				JSONLIB_AddValueJSON(json, NULL);
-				JSON* newVal = (JSON*)allocate(sizeof(JSON));
+				JSON* newVal = (JSON*)JSON_Allocate(sizeof(JSON));
 				newVal->parent = json;
 				assert(json->values != NULL);
 				json->values[json->valueCount - 1] = newVal;
@@ -620,7 +618,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 		case IDENTIFIER:
 		{
 			// Allocate a node for this identifier
-			JSON *val = (JSON*)allocate(sizeof(JSON));
+			JSON *val = (JSON*)JSON_Allocate(sizeof(JSON));
 			JSONLIB_AddValueJSON (json, val);
 			assert(json->values != NULL);
 			json = val;
@@ -689,8 +687,8 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 // Sets the allocation functions for the library to use internally
 void JSONLIB_SetAllocator(JSON_ALLOC alloc, JSON_DEALLOC dealloc)
 {
-	allocate = alloc;
-	deallocate = dealloc;
+	JSON_Allocate = alloc;
+	JSON_Deallocate = dealloc;
 }
 
 // NOTE: @Jon
@@ -700,12 +698,12 @@ static void FreeTokenAndStackMemory(JSON_TOKENS *tokens, JSON_DIVIDER_STACK *sta
 	for (u32 i = 0; i < tokens->tokenCount; ++i)
 	{
 		if (tokens->tokens[i].identifier != NULL)
-			deallocate(tokens->tokens[i].identifier);
+			JSON_Deallocate(tokens->tokens[i].identifier);
 	}
-	deallocate(tokens->tokens);
-	deallocate(tokens);
+	JSON_Deallocate(tokens->tokens);
+	JSON_Deallocate(tokens);
 
-	deallocate(stack->dividerStack);
+	JSON_Deallocate(stack->dividerStack);
 }
 
 // NOTE: @Jon
@@ -713,7 +711,7 @@ static void FreeTokenAndStackMemory(JSON_TOKENS *tokens, JSON_DIVIDER_STACK *sta
 JSON *JSONLIB_ParseJSON(const char *jsonString, u32 stringLength)
 {
 	JSON_DIVIDER_STACK stack;
-	stack.dividerStack = (char*)allocate(sizeof(char) * JSON_DEFAULT_DIVIDER_STACK_SIZE);
+	stack.dividerStack = (char*)JSON_Allocate(sizeof(char) * JSON_DEFAULT_DIVIDER_STACK_SIZE);
 	stack.dividerCount = 0;
 	stack.dividerCapacity = JSON_DEFAULT_DIVIDER_STACK_SIZE;
 
@@ -739,11 +737,11 @@ JSON *JSONLIB_ParseJSON(const char *jsonString, u32 stringLength)
 		return NULL;
 	}
 
-	deallocate(tokens->tokens);
+	JSON_Deallocate(tokens->tokens);
 
-	deallocate(tokens);
+	JSON_Deallocate(tokens);
 
-	deallocate(stack.dividerStack);
+	JSON_Deallocate(stack.dividerStack);
 
 	return json;
 }
@@ -760,9 +758,9 @@ static const char *IntegerValueToString(char *dest, const i32 integer, const u32
 	return dest;
 }
 
-static const char *CopyStringValueToString(char *dest, const char *source)
+static const char *CopyStringValueToString(char *dest, const char *source, const u32 sourceLength)
 {
-	memcpy(dest, source, sizeof(char) * strlen(source));
+	memcpy(dest, source, sizeof(char) * sourceLength);
 	return dest;
 }
 
@@ -780,23 +778,21 @@ static const char* NullValueToString(char* dest)
 	return dest;
 }
 
-static char *MakeStringValueString(const char *str)
+static char *MakeStringValueString(const char *str, const u32 strLen)
 {
-	char *memberNameString = (char*)allocate(sizeof(char) * strlen(str) + 3);
-	memberNameString[0] = memberNameString[strlen(str) + 1] = '\"';
-	memberNameString[strlen(str) + 2] = '\0';
-	memcpy(&memberNameString[1], str, sizeof(char) * strlen(str));
+	char *memberNameString = (char*)JSON_Allocate(sizeof(char) * strLen + 3);
+	memberNameString[0] = memberNameString[strLen + 1] = '\"';
+	memberNameString[strLen + 2] = '\0';
+	memcpy(&memberNameString[1], str, sizeof(char) * strLen);
 	return memberNameString;
 }
 
 static char *MakeValueString(const JSON *json, const u32 stringSize, JSON_DIVIDER_STACK *stack)
 {
-	// TODO: @Jon
-	// Gotta not hardcode this
 	char *valueString = NULL;
 
 	if (json->tags & JSON_DECIMAL_TAG || json->tags & JSON_INTEGER_TAG || json->tags & JSON_BOOLEAN_TAG || json->tags & JSON_NULL_TAG)
-		valueString = (char*)allocate(sizeof(char) * stringSize);
+		valueString = (char*)JSON_Allocate(sizeof(char) * stringSize);
 
 	if (json->tags & JSON_DECIMAL_TAG)
 		DecimalValueToString(valueString, json->decimal, stringSize);
@@ -807,7 +803,10 @@ static char *MakeValueString(const JSON *json, const u32 stringSize, JSON_DIVIDE
 	else if (json->tags & JSON_NULL_TAG)
 		NullValueToString(valueString);
 	else if (json->tags & JSON_STRING_TAG)
-		valueString = MakeStringValueString(json->string);
+	{
+		const u32 valueStrLen = strlen(json->string);
+		valueString = MakeStringValueString(json->string, valueStrLen);
+	}
 	
 	return valueString;
 }
@@ -816,11 +815,11 @@ static bool StringCapacityHelper(JSON_STRING_STRUCT *str, u32 potentialAllocatio
 {
 	if (str->length >= str->capacity || str->length + potentialAllocation >= str->capacity)
 	{
-		char *doubled = (char*)allocate(sizeof(char) * str->capacity * 2);
+		char *doubled = (char*)JSON_Allocate(sizeof(char) * str->capacity * 2);
 		if (doubled == NULL)
 			return false;
 		memcpy(doubled, str->raw, sizeof(char) * str->length);
-		deallocate(str->raw);
+		JSON_Deallocate(str->raw);
 		str->raw = doubled;
 		str->capacity *= 2;
 	}
@@ -838,16 +837,17 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 {
 	if (json->name != NULL)
 	{
-		if (strlen(json->name) > 0)
+		const u32 nameLen = strlen(json->name);
+		if (nameLen > 0)
 		{
-			char* name = MakeStringValueString(json->name);
-			StringCapacityHelper(str, (u32)strlen(name));
-			memcpy(&str->raw[str->length], name, sizeof(char) + strlen(name));
-			str->length += (u32)strlen(name);
+			char* name = MakeStringValueString(json->name, nameLen);
+			StringCapacityHelper(str, (u32)nameLen);
+			memcpy(&str->raw[str->length], name, sizeof(char) + nameLen);
+			str->length += nameLen;
 			StringCapacityHelper(str, 1);
 			str->raw[str->length++] = ':';
 			StringCapacityHelper(str, 64);
-			deallocate(name);
+			JSON_Deallocate(name);
 		}
 	}
 
@@ -883,15 +883,18 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 	}
 	else
 	{
+		// TODO: @Jon
+		// Shouldn't hardcode the value string size!
 		char* valString = MakeValueString(json, 64, stack);
 
 		if (valString != NULL)
 		{
-			memcpy(&str->raw[str->length], valString, sizeof(char) + strlen(valString));
+			const u32 valStrLen = (u32)strlen(valString);
+			memcpy(&str->raw[str->length], valString, sizeof(char) + valStrLen);
 
-			str->length += (u32)strlen(valString);
+			str->length += valStrLen;
 
-			deallocate(valString);
+			JSON_Deallocate(valString);
 		}
 	}
 
@@ -918,10 +921,10 @@ const char * JSONLIB_MakeJSON(const JSON * const json, const bool humanReadable)
 	JSON_STRING_STRUCT jsonString;
 	jsonString.capacity = 64;
 	jsonString.length = 0;
-	jsonString.raw = (char*)allocate(sizeof(char) * 64);
+	jsonString.raw = (char*)JSON_Allocate(sizeof(char) * 64);
 
 	JSON_DIVIDER_STACK stack;
-	stack.dividerStack = (char*)allocate(sizeof(char) * JSON_DEFAULT_DIVIDER_STACK_SIZE);
+	stack.dividerStack = (char*)JSON_Allocate(sizeof(char) * JSON_DEFAULT_DIVIDER_STACK_SIZE);
 	stack.dividerCount = 0;
 	stack.dividerCapacity = JSON_DEFAULT_DIVIDER_STACK_SIZE;
 
@@ -931,7 +934,7 @@ const char * JSONLIB_MakeJSON(const JSON * const json, const bool humanReadable)
 
 	jsonString.raw[jsonString.length++] = '\0';
 
-	deallocate(stack.dividerStack);
+	JSON_Deallocate(stack.dividerStack);
 
 	return jsonString.raw;
 }
@@ -974,13 +977,13 @@ void JSONLIB_FreeJSON(JSON *json)
 	}
 
 	if (json->name)
-		deallocate((void*)json->name);
+		JSON_Deallocate((void*)json->name);
 
 	if (json->tags & JSON_STRING_TAG)
-		deallocate((void*)json->string);
+		JSON_Deallocate((void*)json->string);
 
 	if (json->valueCount > 0)
-		deallocate(json->values);
+		JSON_Deallocate(json->values);
 
-	deallocate(json);
+	JSON_Deallocate(json);
 }

@@ -9,8 +9,8 @@ int main()
 {
 	const char* str = "{\"object\":{\"value\":12}}";
 
-	InitAllocatorContext();
-	JSONLIB_SetAllocator(Allocate, Deallocate);
+	InitTESTAllocatorContext();
+	JSONLIB_SetAllocator(TESTAllocate, TESTDeallocate);
 
 	JSON* json = JSONLIB_ParseJSON(str, (u32)strlen(str));
 
@@ -40,7 +40,7 @@ int main()
 
 	assert(!strcmp(str, jsonStr));
 
-	Deallocate(jsonStr);
+	TESTDeallocate((void*)jsonStr);
 
 	JSONLIB_FreeJSON(json);
 

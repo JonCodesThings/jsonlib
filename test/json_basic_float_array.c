@@ -9,8 +9,8 @@ int main()
 {
 	const char* str = "{\"array\":[3.14,27.3245,77.43535678]}";
 
-	InitAllocatorContext();
-	JSONLIB_SetAllocator(Allocate, Deallocate);
+	InitTESTAllocatorContext();
+	JSONLIB_SetAllocator(TESTAllocate, TESTDeallocate);
 
 	JSON* json = JSONLIB_ParseJSON(str, (u32)strlen(str));
 
@@ -36,7 +36,7 @@ int main()
 		assert(array->values[2]->decimal == 77.43535678f);
 	}
 
-	Deallocate(jsonStr);
+	TESTDeallocate((void*)jsonStr);
 
 	JSONLIB_FreeJSON(json);
 
