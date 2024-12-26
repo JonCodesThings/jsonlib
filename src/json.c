@@ -872,8 +872,7 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 			StringCapacityHelper(str, (u32)valueStrLen);
 			memcpy(&str->raw[str->length], name, sizeof(char) * valueStrLen);
 			str->length += valueStrLen;
-			StringCapacityHelper(str, 1);
-			str->raw[str->length++] = ':';
+			AppendCharToString(str, ':');
 			StringCapacityHelper(str, 64);
 			JSON_Deallocate(name);
 		}
@@ -882,14 +881,12 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 	if (HasTags(json, JSON_OBJECT_TAG))
 	{
 		DividerStackPush(stack, '{');
-		str->raw[str->length++] = '{';
-		StringCapacityHelper(str, 0);
+		AppendCharToString(str, '{');
 	}
 	else if (HasTags(json, JSON_ARRAY_TAG))
 	{
 		DividerStackPush(stack, '[');
-		str->raw[str->length++] = '[';
-		StringCapacityHelper(str, 0);
+		AppendCharToString(str, '[');
 	}
 
 	if (json->valueCount > 0)
@@ -900,9 +897,7 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 
 			if (i != json->valueCount - 1)
 			{
-				StringCapacityHelper(str, 1);
-
-				str->raw[str->length++] = ',';
+				AppendCharToString(str, ',');
 			}
 
 			if (humanReadable)
@@ -929,14 +924,12 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 	if (HasTags(json, JSON_OBJECT_TAG))
 	{
 		DividerStackPop(stack);
-		str->raw[str->length++] = '}';
-		StringCapacityHelper(str, 0);
+		AppendCharToString(str, '}');
 	}
 	else if (HasTags(json, JSON_ARRAY_TAG))
 	{
 		DividerStackPop(stack);
-		str->raw[str->length++] = ']';
-		StringCapacityHelper(str, 0);
+		AppendCharToString(str, ']');
 	}
 
 	return str;
