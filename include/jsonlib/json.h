@@ -142,4 +142,9 @@ JSON *JSONLIB_GetValueJSON(const char *name, u32 nameLength, JSON *json);
 // Frees memory associated with a given node and all of its children
 void JSONLIB_FreeJSON(JSON *json);
 
+// NOTE: @Jon
+// Frees memory associated with a given string
+// N.B. This will set the str pointer to NULL
+void JSONLIB_ClearJSON(const char *str);
+
 #endif
