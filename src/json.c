@@ -850,6 +850,7 @@ static bool AppendStringToString(JSON_STRING_STRUCT *str, const char* chars, con
 	if (!StringCapacityHelper(str, charsLen))
 		return false;
 	memcpy(&str->raw[str->length], chars, sizeof(char) * charsLen);
+	str->length += charsLen;
 	return true;
 }
 
@@ -869,11 +870,8 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 		{
 			char* name = MakeStringValueString(json->name, nameLen);
 			u32 valueStrLen = strlen(name);
-			StringCapacityHelper(str, (u32)valueStrLen);
-			memcpy(&str->raw[str->length], name, sizeof(char) * valueStrLen);
-			str->length += valueStrLen;
+			AppendStringToString(str, name, valueStrLen);
 			AppendCharToString(str, ':');
-			StringCapacityHelper(str, 64);
 			JSON_Deallocate(name);
 		}
 	}
@@ -913,10 +911,7 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 		if (valString != NULL)
 		{
 			const u32 valStrLen = (u32)strlen(valString);
-			memcpy(&str->raw[str->length], valString, sizeof(char) + valStrLen);
-
-			str->length += valStrLen;
-
+			AppendStringToString(str, valString, valStrLen);
 			JSON_Deallocate(valString);
 		}
 	}
@@ -951,9 +946,7 @@ const char * JSONLIB_MakeJSON(const JSON * const json, const bool humanReadable)
 
 	MakeJSONInternal(&jsonString, &stack, json, humanReadable);
 
-	StringCapacityHelper(&jsonString, 1);
-
-	jsonString.raw[jsonString.length++] = '\0';
+	AppendCharToString(&jsonString, '\0');
 
 	JSON_Deallocate(stack.dividerStack);
 
