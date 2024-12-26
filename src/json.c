@@ -26,6 +26,11 @@ const u8 JSON_OBJECT_TAG = 1 << 4;
 const u8 JSON_BOOLEAN_TAG = 1 << 5;
 const u8 JSON_NULL_TAG = 1 << 6;
 
+static bool HasTags(const JSON* json, const u8 tags)
+{
+	return json->tags & tags;
+}
+
 // NOTE: @Jon
 // Some useful strings
 static const char* const JSONtrueStr = "true";
@@ -104,6 +109,8 @@ static void ParseIdentifier(JSON_TOKEN *token, const char *ident, u32 valueLengt
 // Parses a value
 static void ParseValue(JSON_TOKEN *token, const char *value, u32 valueLength)
 {
+	token->type = JSON_ERROR;
+
 	// If the value matches a string
 	if (value[0] == '"' && value[valueLength] == '"')
 	{
@@ -143,10 +150,9 @@ static void ParseValue(JSON_TOKEN *token, const char *value, u32 valueLength)
 	}
 	// If it's just null
 	if (value[0] == 'n' && value[valueLength] == 'l')
+	{
 		token->type = JSON_NULL;
-	// Otherwise give up
-	else
-		token->type = JSON_ERROR;
+	}
 }
 
 // NOTE: @Jon
@@ -581,7 +587,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 
 			assert(json != NULL);
 
-			if (json->tags & JSON_ARRAY_TAG)
+			if (HasTags(json, JSON_ARRAY_TAG))
 			{
 				JSONLIB_AddValueJSON(json, NULL);
 				JSON* newVal = (JSON*)JSON_Allocate(sizeof(JSON));
@@ -639,7 +645,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 			break;
 		case STRING:
 		{
-			if (json->tags & JSON_ARRAY_TAG)
+			if (HasTags(json, JSON_ARRAY_TAG))
 				AddValueToArray(&json);
 			// Add a string value to the node
 			AddStringValue(&json, tokens[i].identifier);
@@ -647,7 +653,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 		}
 		case INTEGER:
 		{
-			if (json->tags & JSON_ARRAY_TAG)
+			if (HasTags(json, JSON_ARRAY_TAG))
 				AddValueToArray(&json);
 			// Add an integer value to the node
 			AddIntegerValue(&json, tokens[i].identifier);
@@ -655,7 +661,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 		}
 		case FLOAT:
 		{
-			if (json->tags & JSON_ARRAY_TAG)
+			if (HasTags(json, JSON_ARRAY_TAG))
 				AddValueToArray(&json);
 			// Add a float value to the node
 			AddDecimalValue(&json, tokens[i].identifier);
@@ -664,7 +670,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 		case JSON_TRUE:
 		case JSON_FALSE:
 		{
-			if (json->tags & JSON_ARRAY_TAG)
+			if (HasTags(json, JSON_ARRAY_TAG))
 				AddValueToArray(&json);
 			// Add a boolean value to the node
 			AddBooleanValue(&json, tokens[i].type == JSON_TRUE);
@@ -672,7 +678,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 		}
 		case JSON_NULL:
 		{
-			if (json->tags & JSON_ARRAY_TAG)
+			if (HasTags(json, JSON_ARRAY_TAG))
 				AddValueToArray(&json);
 			// Add a null value to the node
 			AddNullValue(&json);
@@ -796,18 +802,18 @@ static char *MakeValueString(const JSON *json, const u32 stringSize, JSON_DIVIDE
 {
 	char *valueString = NULL;
 
-	if (json->tags & JSON_DECIMAL_TAG || json->tags & JSON_INTEGER_TAG || json->tags & JSON_BOOLEAN_TAG || json->tags & JSON_NULL_TAG)
+	if (HasTags(json, JSON_DECIMAL_TAG | JSON_INTEGER_TAG | JSON_BOOLEAN_TAG | JSON_NULL_TAG))
 		valueString = (char*)JSON_Allocate(sizeof(char) * stringSize);
 
-	if (json->tags & JSON_DECIMAL_TAG)
+	if (HasTags(json, JSON_DECIMAL_TAG))
 		DecimalValueToString(valueString, json->decimal, stringSize);
-	else if (json->tags & JSON_INTEGER_TAG)
+	else if (HasTags(json, JSON_INTEGER_TAG))
 		IntegerValueToString(valueString, json->integer, stringSize);
-	else if (json->tags & JSON_BOOLEAN_TAG)
+	else if (HasTags(json, JSON_BOOLEAN_TAG))
 		BooleanValueToString(valueString, json->boolean);
-	else if (json->tags & JSON_NULL_TAG)
+	else if (HasTags(json, JSON_NULL_TAG))
 		NullValueToString(valueString);
-	else if (json->tags & JSON_STRING_TAG)
+	else if (HasTags(json, JSON_STRING_TAG))
 	{
 		const u32 valueStrLen = strlen(json->string);
 		valueString = MakeStringValueString(json->string, valueStrLen);
@@ -828,6 +834,22 @@ static bool StringCapacityHelper(JSON_STRING_STRUCT *str, u32 potentialAllocatio
 		str->raw = doubled;
 		str->capacity *= 2;
 	}
+	return true;
+}
+
+static bool AppendCharToString(JSON_STRING_STRUCT *str, const char alloc)
+{
+	if (!StringCapacityHelper(str, 1))
+		return false;
+	str->raw[str->length++] = alloc;
+	return true;
+}
+
+static bool AppendStringToString(JSON_STRING_STRUCT *str, const char* chars, const u32 charsLen)
+{
+	if (!StringCapacityHelper(str, charsLen))
+		return false;
+	memcpy(&str->raw[str->length], chars, sizeof(char) * charsLen);
 	return true;
 }
 
@@ -857,13 +879,13 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 		}
 	}
 
-	if (json->tags & JSON_OBJECT_TAG)
+	if (HasTags(json, JSON_OBJECT_TAG))
 	{
 		DividerStackPush(stack, '{');
 		str->raw[str->length++] = '{';
 		StringCapacityHelper(str, 0);
 	}
-	else if (json-> tags & JSON_ARRAY_TAG)
+	else if (HasTags(json, JSON_ARRAY_TAG))
 	{
 		DividerStackPush(stack, '[');
 		str->raw[str->length++] = '[';
@@ -904,13 +926,13 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 		}
 	}
 
-	if (json->tags & JSON_OBJECT_TAG)
+	if (HasTags(json, JSON_OBJECT_TAG))
 	{
 		DividerStackPop(stack);
 		str->raw[str->length++] = '}';
 		StringCapacityHelper(str, 0);
 	}
-	else if (json->tags & JSON_ARRAY_TAG)
+	else if (HasTags(json, JSON_ARRAY_TAG))
 	{
 		DividerStackPop(stack);
 		str->raw[str->length++] = ']';
@@ -985,11 +1007,17 @@ void JSONLIB_FreeJSON(JSON *json)
 	if (json->name)
 		JSON_Deallocate((void*)json->name);
 
-	if (json->tags & JSON_STRING_TAG)
+	if (HasTags(json, JSON_STRING_TAG))
 		JSON_Deallocate((void*)json->string);
 
 	if (json->valueCount > 0)
 		JSON_Deallocate(json->values);
 
 	JSON_Deallocate(json);
+}
+
+void JSONLIB_ClearJSON(const char *str)
+{
+	JSON_Deallocate((void*)str);
+	str = NULL;
 }
