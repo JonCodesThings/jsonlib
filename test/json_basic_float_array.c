@@ -36,7 +36,7 @@ int main()
 		assert(array->values[2]->decimal == 77.43535678f);
 	}
 
-	TESTDeallocate((void*)jsonStr);
+	JSONLIB_ClearJSON((void*)jsonStr);
 
 	JSONLIB_FreeJSON(json);
 

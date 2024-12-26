@@ -34,7 +34,7 @@ int main()
 
 	assert(!strcmp(str, jsonStr));
 
-	TESTDeallocate((void*)jsonStr);
+	JSONLIB_ClearJSON((void*)jsonStr);
 
 	JSONLIB_FreeJSON(json);
 

@@ -31,7 +31,7 @@ int main()
 		assert(json->values[0]->decimal == 0.14f);
 	}
 
-	TESTDeallocate((void*)jsonStr);
+	JSONLIB_ClearJSON((void*)jsonStr);
 
 	JSONLIB_FreeJSON(json);
 
