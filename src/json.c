@@ -111,9 +111,11 @@ static void ParseValue(JSON_TOKEN *token, const char *value, u32 valueLength)
 		token->identifier = (char*)JSON_Allocate(sizeof(char) * (valueLength));
 		token->identifier[valueLength - 1] = '\0';
 		memcpy(token->identifier, &value[1], sizeof(char) * (valueLength - 1));
+		return;
 	}
+
 	// If it starts with a number
-	else if ((value[0] > 47 && value[0] < 58) || value[0] == '-')
+	if ((value[0] > 47 && value[0] < 58) || value[0] == '-')
 	{
 		token->identifier = (char*)JSON_Allocate(sizeof(char) * ((size_t)valueLength + 1));
 		token->identifier[valueLength] = '\0';
@@ -127,17 +129,20 @@ static void ParseValue(JSON_TOKEN *token, const char *value, u32 valueLength)
 			}
 		}
 		token->type = INTEGER;
+		return;
 	}
+
 	// If it's a boolean value
-	else if ((value[0] == 't' && (value[3] == 'e')) || (value[0] == 'f'&& (value[4] == 'e')))
+	if ((value[0] == 't' && (value[3] == 'e')) || (value[0] == 'f'&& (value[4] == 'e')))
 	{
 		if (value[0] == 't')
 			token->type = JSON_TRUE;
 		else
 			token->type = JSON_FALSE;
+		return;
 	}
 	// If it's just null
-	else if (value[0] == 'n' && value[valueLength] == 'l')
+	if (value[0] == 'n' && value[valueLength] == 'l')
 		token->type = JSON_NULL;
 	// Otherwise give up
 	else
@@ -841,9 +846,10 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 		if (nameLen > 0)
 		{
 			char* name = MakeStringValueString(json->name, nameLen);
-			StringCapacityHelper(str, (u32)nameLen);
-			memcpy(&str->raw[str->length], name, sizeof(char) + nameLen);
-			str->length += nameLen;
+			u32 valueStrLen = strlen(name);
+			StringCapacityHelper(str, (u32)valueStrLen);
+			memcpy(&str->raw[str->length], name, sizeof(char) * valueStrLen);
+			str->length += valueStrLen;
 			StringCapacityHelper(str, 1);
 			str->raw[str->length++] = ':';
 			StringCapacityHelper(str, 64);
@@ -921,7 +927,7 @@ const char * JSONLIB_MakeJSON(const JSON * const json, const bool humanReadable)
 	JSON_STRING_STRUCT jsonString;
 	jsonString.capacity = 64;
 	jsonString.length = 0;
-	jsonString.raw = (char*)JSON_Allocate(sizeof(char) * 64);
+	jsonString.raw = (char*)JSON_Allocate(sizeof(char) * 1024);
 
 	JSON_DIVIDER_STACK stack;
 	stack.dividerStack = (char*)JSON_Allocate(sizeof(char) * JSON_DEFAULT_DIVIDER_STACK_SIZE);
