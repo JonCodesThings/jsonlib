@@ -815,7 +815,7 @@ static char *MakeValueString(const JSON *json, const u32 stringSize, JSON_DIVIDE
 		NullValueToString(valueString);
 	else if (HasTags(json, JSON_STRING_TAG))
 	{
-		const u32 valueStrLen = strlen(json->string);
+		const u32 valueStrLen = (u32)strlen(json->string);
 		valueString = MakeStringValueString(json->string, valueStrLen);
 	}
 	
@@ -865,11 +865,11 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 {
 	if (json->name != NULL)
 	{
-		const u32 nameLen = strlen(json->name);
+		const u32 nameLen = (u32)strlen(json->name);
 		if (nameLen > 0)
 		{
 			char* name = MakeStringValueString(json->name, nameLen);
-			u32 valueStrLen = strlen(name);
+			u32 valueStrLen = (u32)strlen(name);
 			AppendStringToString(str, name, valueStrLen);
 			AppendCharToString(str, ':');
 			JSON_Deallocate(name);
