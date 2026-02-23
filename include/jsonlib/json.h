@@ -4,6 +4,7 @@
 // TODO: @Jon
 // Figure if we really need this include here
 #include <stdbool.h>
+#include <stddef.h>
 
 // NOTE: @Jon
 // Useful typedefs
@@ -13,7 +14,9 @@
 #if OSLIB
 #include <include/oslib/platform.h>
 #else
+#ifndef NULL
 #define NULL 0
+#endif
 #ifdef _MSC_VER
 #if _WIN32
 typedef char i8;
@@ -49,8 +52,8 @@ typedef double f64;
 
 // NOTE: @Jon
 // Function pointer typedefs for allocation functions
-typedef void* (*JSON_ALLOC)(size_t);
-typedef void(*JSON_DEALLOC)(void*);
+typedef void* (*JSON_ALLOC)(size_t numBytes);
+typedef void(*JSON_DEALLOC)(void* bytes);
 
 // NOTE: @Jon
 // Constants used for tagging nodes to indicate what type they are representing

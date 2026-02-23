@@ -511,7 +511,7 @@ static bool CorrectTokens(JSON_TOKENS* tokens, JSON_DIVIDER_STACK* dividerStack)
 
 	for (u32 i = 0; i < tokens->tokenCount; ++i)
 	{
-		JSON_TOKEN* prev = i > 0 ? &tokens->tokens[i - 1] : NULL;
+		//JSON_TOKEN* prev = i > 0 ? &tokens->tokens[i - 1] : NULL;
 		JSON_TOKEN* next = i < tokens->tokenCount - 1 ? &tokens->tokens[i + 1] : NULL;
 		JSON_TOKEN* current = &tokens->tokens[i];
 
@@ -684,6 +684,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 			AddNullValue(&json);
 			break;
 		}
+		default: break;
 		}
 	}
 
@@ -766,12 +767,6 @@ static const char *DecimalValueToString(char *dest, const f32 decimal, const u32
 static const char *IntegerValueToString(char *dest, const i32 integer, const u32 stringSize)
 {
 	snprintf(dest, sizeof(char) * stringSize, "%d", integer);
-	return dest;
-}
-
-static const char *CopyStringValueToString(char *dest, const char *source, const u32 sourceLength)
-{
-	memcpy(dest, source, sizeof(char) * sourceLength);
 	return dest;
 }
 
