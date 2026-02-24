@@ -377,10 +377,9 @@ static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength, JSON_DIVI
 
 			container->tokens = newTokenAlloc;
 			container->tokenCapacity *= 2;
-
 		}
 
-		JSON_TOKEN* currentToken = container->tokenCount > 0 ? &container->tokens[container->tokenCount] : NULL;
+		JSON_TOKEN* currentToken = container->tokenCount > 0 ? &container->tokens[container->tokenCount - 1] : NULL;
 
 		switch (jsonString[i])
 		{
@@ -418,6 +417,7 @@ static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength, JSON_DIVI
 			break;
 		}
 
+		// If we have no tokens yet we can skip to the next iteration
 		if (currentToken == NULL)
 		{
 			continue;
@@ -502,8 +502,8 @@ static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength, JSON_DIVI
 				for (u32 iter = i; iter < stringLength; ++iter)
 				{
 					if (jsonString[iter] != COMMA && jsonString[iter] != RIGHT_BRACE
-						&& jsonString[iter] != RIGHT_SQUARE_BRACKET && jsonString[iter] == '\r'
-						&& jsonString[iter] == '\n') continue;
+						&& jsonString[iter] != RIGHT_SQUARE_BRACKET && jsonString[iter] != '\r'
+						&& jsonString[iter] != '\n') continue;
 
 					u32 length = iter - i;
 					ParseValue(&container->tokens[container->tokenCount++], &jsonString[i], length);
