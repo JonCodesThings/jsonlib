@@ -51,6 +51,8 @@ typedef struct JSON_STRING_STRUCT
 // We're taking advantage of only supporting UTF-8 chars for some of the values
 enum JSON_TOKEN_TYPE
 {
+	JSON_NULL= 0,
+
 	IDENTIFIER,
 	INTEGER,
 	FLOAT,
@@ -66,20 +68,10 @@ enum JSON_TOKEN_TYPE
 
 	JSON_TRUE,
 	JSON_FALSE,
-	JSON_NULL,
+
 	JSON_EOF,
 	JSON_ERROR
 };
-
-
-// NOTE: @Jon
-// JSON Divider Stack for tracking different dividers (e.g. {} or [])
-typedef struct JSON_DIVIDER_STACK
-{
-	enum JSON_TOKEN_TYPE *dividerStack;
-	u32 dividerCount;
-	u32 dividerCapacity;
-} JSON_DIVIDER_STACK;
 
 // NOTE: @Jon
 // Struct to store token information for the JSON
@@ -98,6 +90,23 @@ typedef struct JSON_TOKENS
 
 static JSON_ALLOC JSON_Allocate = malloc;
 static JSON_DEALLOC JSON_Deallocate = free;
+
+static inline void PushToken(JSON_TOKENS* container, enum JSON_TOKEN_TYPE tokenType)
+{
+	if (container->tokenCount + 1 >= container->tokenCapacity)
+	{
+		JSON_TOKEN* newTokenAlloc = (JSON_TOKEN*)JSON_Allocate(sizeof(JSON_TOKEN) * container->tokenCapacity * 2);
+		assert(newTokenAlloc != NULL);
+
+		memcpy(newTokenAlloc, container->tokens, sizeof(JSON_TOKEN) * container->tokenCapacity);
+		JSON_Deallocate(container->tokens);
+
+		container->tokens = newTokenAlloc;
+		container->tokenCapacity *= 2;
+	}
+
+	container->tokens[container->tokenCount++].type = tokenType;
+}
 
 // NOTE: @Jon
 // Parses an identifier
@@ -144,7 +153,7 @@ static void ParseValue(JSON_TOKEN *token, const char *value, u32 valueLength)
 	}
 
 	// If it's a boolean value
-	if ((value[0] == 't' && (value[3] == 'e')) || (value[0] == 'f'&& (value[4] == 'e')))
+	if ((value[0] == 't' && value[3] == 'e') || (value[0] == 'f'&& value[4] == 'e'))
 	{
 		if (value[0] == 't')
 			token->type = JSON_TRUE;
@@ -248,44 +257,6 @@ void JSONLIB_AddValueJSON(JSON *json, JSON *val)
 		json->values[json->valueCount - 1] = val;
 }
 
-static void DividerStackPush(JSON_DIVIDER_STACK *const stack, const enum JSON_TOKEN_TYPE toPush)
-{
-	if (stack->dividerCount + 1 >= stack->dividerCapacity)
-	{
-		enum JSON_TOKEN_TYPE *expanded = (enum JSON_TOKEN_TYPE*)JSON_Allocate(sizeof(enum JSON_TOKEN_TYPE) * stack->dividerCapacity * 2);
-
-		assert(expanded != NULL);
-
-		memcpy(expanded, stack->dividerStack, sizeof(JSON_TOKEN) * stack->dividerCount);
-		stack->dividerCapacity *= 2;
-		JSON_Deallocate(stack->dividerStack);
-		stack->dividerStack = expanded;
-	}
-	stack->dividerStack[stack->dividerCount++] = toPush;
-}
-
-static char DividerStackPop(JSON_DIVIDER_STACK *const stack)
-{
-	return stack->dividerStack[--stack->dividerCount];
-}
-
-// NOTE: @Jon
-// Get the closing token to the current divider
-static u32 GetCloserOffset(JSON_TOKEN *token, u32 startToken, u32 tokenCount, JSON_DIVIDER_STACK *stack, enum JSON_TOKEN_TYPE opener, enum JSON_TOKEN_TYPE closer)
-{
-	for (u32 i = 0; i < tokenCount; ++i)
-	{
-		if (token[i].type == LEFT_BRACE || token[i].type == LEFT_SQUARE_BRACKET)
-			DividerStackPush(stack, token[i].type);
-		else if (token[i].type == RIGHT_BRACE || token[i].type == RIGHT_SQUARE_BRACKET)
-			DividerStackPop(stack);
-
-		if (stack->dividerCount == 0)
-			return i - startToken;
-	}
-	return -1;
-}
-
 // NOTE: @Jon
 // Convenience function for adding a new value to an array that's being parsed
 static void AddValueToArray(JSON** json)
@@ -358,7 +329,7 @@ static void AddNullValue(JSON** json)
 
 // NOTE: @Jon
 // Function for tokenising the given input string
-static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength, JSON_DIVIDER_STACK* dividerStack)
+static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength)
 {
 	JSON_TOKENS* container = (JSON_TOKENS*)JSON_Allocate(sizeof(JSON_TOKENS));
 	container->tokens = (JSON_TOKEN*)JSON_Allocate(sizeof(JSON_TOKEN) * JSON_DEFAULT_TOKENS);
@@ -367,205 +338,39 @@ static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength, JSON_DIVI
 
 	for (u32 i = 0; i < stringLength; ++i)
 	{
-		if (container->tokenCount >= container->tokenCapacity)
-		{
-			JSON_TOKEN* newTokenAlloc = (JSON_TOKEN*)JSON_Allocate(sizeof(JSON_TOKEN) * container->tokenCapacity * 2);
-			assert(newTokenAlloc != NULL);
-
-			memcpy(newTokenAlloc, container->tokens, sizeof(JSON_TOKEN) * container->tokenCapacity);
-			JSON_Deallocate(container->tokens);
-
-			container->tokens = newTokenAlloc;
-			container->tokenCapacity *= 2;
-		}
-
-		JSON_TOKEN* currentToken = container->tokenCount > 0 ? &container->tokens[container->tokenCount - 1] : NULL;
-
 		switch (jsonString[i])
 		{
-			// NOTE: @Jon
-			// Fairly standard JSON character handling
-		case LEFT_BRACE:
-			container->tokens[container->tokenCount++].type = LEFT_BRACE;
-			DividerStackPush(dividerStack, LEFT_BRACE);
-			continue;
-		case RIGHT_BRACE:
-			container->tokens[container->tokenCount++].type = RIGHT_BRACE;
-			DividerStackPop(dividerStack);
-			continue;
-		case LEFT_SQUARE_BRACKET:
-			container->tokens[container->tokenCount++].type = LEFT_SQUARE_BRACKET;
-			DividerStackPush(dividerStack, LEFT_SQUARE_BRACKET);
-			continue;
-		case RIGHT_SQUARE_BRACKET:
-			container->tokens[container->tokenCount++].type = RIGHT_SQUARE_BRACKET;
-			DividerStackPop(dividerStack);
-			continue;
-		case QUOTE:
-			if (dividerStack->dividerStack[dividerStack->dividerCount - 1] == '"')
-				dividerStack->dividerCount--;
-			else
-				DividerStackPush(dividerStack, QUOTE);
-			continue;
-		case COLON:
-			container->tokens[container->tokenCount++].type = COLON;
-			continue;
-		case COMMA:
-			container->tokens[container->tokenCount++].type = COMMA;
-			continue;
-		default:
-			break;
-		}
-
-		// If we have no tokens yet we can skip to the next iteration
-		if (currentToken == NULL)
-		{
-			continue;
-		}
-
-		if (currentToken->type == COLON)
-		{
-			enum JSON_TOKEN_TYPE prevDivider = dividerStack->dividerStack[dividerStack->dividerCount - 1];
-			if (prevDivider == QUOTE)
-			{
-				for (u32 iter = i; iter < stringLength; ++iter)
-				{
-					if (jsonString[iter] != QUOTE) continue;
-
-					// Get the length of the string
-					u32 length = (iter - i) + 1;
-
-					ParseValue(&container->tokens[container->tokenCount++], &jsonString[i - 1], length);
-
-					// Stop checking for an identifier
-					i = iter - 1;
-					break;
-				}
-			}
-
-			if ((jsonString[i] > 47 && jsonString[i] < 58) || jsonString[i] == '-')
-			{
-				for (u32 iter = i; iter < stringLength; ++iter)
-				{
-					if (jsonString[iter] != COMMA && jsonString[iter] != RIGHT_BRACE) continue;
-
-					u32 length = iter - i;
-					ParseValue(&container->tokens[container->tokenCount++], &jsonString[i], length);
-					i = iter - 1;
-					break;
-				}
-			}
-
-			if (jsonString[i] == 'n' || jsonString[i] == 't' || jsonString[i] == 'f')
-			{
-				for (u32 iter = i; iter < stringLength; ++iter)
-				{
-					if (jsonString[iter] != COMMA && jsonString[iter] != RIGHT_BRACE) continue;
-
-					u32 length = iter - i;
-					ParseValue(&container->tokens[container->tokenCount++], &jsonString[i], length - 1);
-					i = iter - 1;
-					break;
-				}
-			}
-		}
-
-		if (currentToken->type == COMMA || currentToken->type == LEFT_BRACE || currentToken->type == LEFT_SQUARE_BRACKET)
-		{
-			enum JSON_TOKEN_TYPE prevDivider = dividerStack->dividerStack[dividerStack->dividerCount - 1];
-
-			if (prevDivider == QUOTE)
-			{
-				for (u32 iter = i; iter < stringLength; ++iter)
-				{
-					if (jsonString[iter] != QUOTE) continue;
-
-					// Get the length of the string
-					u32 length = iter - i;
-
-					ParseIdentifier(&container->tokens[container->tokenCount++] , &jsonString[i], length);
-					// printf("%s\n", container->tokens[container->tokenCount].identifier);
-
-					// Stop checking for an identifier
-					i = iter - 1;
-					break;
-				}
-			}
-			bool divstack = false;
-			if (dividerStack->dividerCount > 1)
-				divstack = dividerStack->dividerStack[dividerStack->dividerCount - 2] == LEFT_BRACE;
-
-			if (prevDivider == LEFT_BRACE || divstack)
-			{
-				if (!(jsonString[i] > 47 && jsonString[i] < 58)) continue;
-
-				for (u32 iter = i; iter < stringLength; ++iter)
-				{
-					if (jsonString[iter] != COMMA && jsonString[iter] != RIGHT_BRACE
-						&& jsonString[iter] != RIGHT_SQUARE_BRACKET && jsonString[iter] != '\r'
-						&& jsonString[iter] != '\n') continue;
-
-					u32 length = iter - i;
-					ParseValue(&container->tokens[container->tokenCount++], &jsonString[i], length);
-					i = iter - 1;
-					break;
-				}
-			}
+			case LEFT_BRACE:
+				PushToken(container, LEFT_BRACE);
+				continue;
+			case RIGHT_BRACE:
+				PushToken(container, RIGHT_BRACE);
+				continue;
+			case LEFT_SQUARE_BRACKET:
+				PushToken(container, LEFT_SQUARE_BRACKET);
+				continue;
+			case RIGHT_SQUARE_BRACKET:
+				PushToken(container, RIGHT_SQUARE_BRACKET);
+				continue;
+			case QUOTE:
+				PushToken(container, QUOTE);
+				continue;
+			case COLON:
+				PushToken(container, COLON);
+				continue;
+			case COMMA:
+				PushToken(container, COMMA);
+				continue;
+			default:
+				break;
 		}
 	}
 	return container;
 }
 
 // NOTE: @Jon
-// Corrects some problems with the tokenisation process after it has finished running
-static bool CorrectTokens(JSON_TOKENS* tokens, JSON_DIVIDER_STACK* dividerStack)
-{
-	for (u32 i = 0; i < dividerStack->dividerCapacity; ++i)
-	{
-		dividerStack->dividerStack[i] = ' ';
-	}
-
-	for (u32 i = 0; i < tokens->tokenCount; ++i)
-	{
-		//JSON_TOKEN* prev = i > 0 ? &tokens->tokens[i - 1] : NULL;
-		JSON_TOKEN* next = i < tokens->tokenCount - 1 ? &tokens->tokens[i + 1] : NULL;
-		JSON_TOKEN* current = &tokens->tokens[i];
-
-		switch (current->type)
-		{
-		default:
-			break;
-		case LEFT_BRACE:
-			DividerStackPush(dividerStack, LEFT_BRACE);
-			break;
-		case LEFT_SQUARE_BRACKET:
-			DividerStackPush(dividerStack, LEFT_SQUARE_BRACKET);
-			break;
-		case RIGHT_BRACE:
-		case RIGHT_SQUARE_BRACKET:
-			DividerStackPop(dividerStack);
-			break;
-		case JSON_ERROR:
-			return false;
-		}
-
-		if (current->type == IDENTIFIER)
-		{
-			if (dividerStack->dividerCount != 0 && next != NULL)
-			{
-				if (dividerStack->dividerStack[dividerStack->dividerCount - 1] == '[' && next->type != COLON)
-					current->type = STRING;
-			}
-		}
-	}
-
-	return true;
-}
-
-
-// NOTE: @Jon
 // Internal parsing function
-static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_STACK *stack, const u8 tags, JSON *parent)
+static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, const u8 tags, JSON *parent)
 {
 	JSON* json = NULL;
 	if ((!(tags & JSON_ARRAY_TAG) && !(tags & JSON_OBJECT_TAG)) || parent == NULL)
@@ -593,14 +398,6 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 		{
 		case LEFT_BRACE:
 		{
-			u32 offset = GetCloserOffset(&tokens[i], 0, tokenCount - i, stack, LEFT_BRACE, RIGHT_BRACE);
-
-			if (offset == -1)
-			{
-				finished = false;
-				break;
-			}
-
 			assert(json != NULL);
 
 			if (HasTags(json, JSON_ARRAY_TAG))
@@ -616,27 +413,18 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, JSON_DIVIDER_
 			}
 
 			// Go one layer deeper to parse an object
-			ParseJSONInternal(&tokens[i], offset + 1, stack, JSON_OBJECT_TAG, json);
-			i += offset;
+			ParseJSONInternal(&tokens[i], i, JSON_OBJECT_TAG, json);
 			json->tags = 0; json->tags |= JSON_OBJECT_TAG;
 			json = json->parent;
 			break;
 		}
 		case LEFT_SQUARE_BRACKET:
 		{
-			u32 offset = GetCloserOffset(&tokens[i], 0, tokenCount - i, stack, LEFT_SQUARE_BRACKET, RIGHT_SQUARE_BRACKET);
-
-			if (offset == -1)
-			{
-				finished = false;
-				break;
-			}
 			assert(json != NULL);
 
 			json->tags = 0; json->tags |= JSON_ARRAY_TAG;
 			// Go one layer deeper to parse an array
-			ParseJSONInternal(&tokens[i], offset + 1, stack, JSON_ARRAY_TAG, json);
-			i += offset;
+			ParseJSONInternal(&tokens[i], i, JSON_ARRAY_TAG, json);
 			json = json->parent;
 			break;
 		}
@@ -721,7 +509,7 @@ void JSONLIB_SetAllocator(JSON_ALLOC alloc, JSON_DEALLOC dealloc)
 
 // NOTE: @Jon
 // Convenience function for freeing memory
-static void FreeTokenAndStackMemory(JSON_TOKENS *tokens, JSON_DIVIDER_STACK *stack)
+static void FreeTokenMemory(JSON_TOKENS *tokens)
 {
 	for (u32 i = 0; i < tokens->tokenCount; ++i)
 	{
@@ -730,46 +518,22 @@ static void FreeTokenAndStackMemory(JSON_TOKENS *tokens, JSON_DIVIDER_STACK *sta
 	}
 	JSON_Deallocate(tokens->tokens);
 	JSON_Deallocate(tokens);
-
-	JSON_Deallocate(stack->dividerStack);
 }
 
 // NOTE: @Jon
 // Parses a JSON string
 JSON *JSONLIB_ParseJSON(const char *jsonString, u32 stringLength)
 {
-	JSON_DIVIDER_STACK stack;
-	stack.dividerStack = (enum JSON_TOKEN_TYPE*)JSON_Allocate(sizeof(enum JSON_TOKEN_TYPE) * JSON_DEFAULT_DIVIDER_STACK_SIZE);
-	stack.dividerCount = 0;
-	stack.dividerCapacity = JSON_DEFAULT_DIVIDER_STACK_SIZE;
+	JSON_TOKENS *tokens = Tokenise(jsonString, stringLength);
 
-	JSON_TOKENS *tokens = Tokenise(jsonString, stringLength, &stack);
+	JSON *json = ParseJSONInternal(tokens->tokens, tokens->tokenCount, JSON_OBJECT_TAG, NULL);
 
-	if (stack.dividerCount != 0)
-	{
-		FreeTokenAndStackMemory(tokens, &stack);
-		return NULL;
-	}
-
-	if (!CorrectTokens(tokens, &stack))
-	{
-		FreeTokenAndStackMemory(tokens, &stack);
-		return NULL;
-	}
-
-	JSON *json = ParseJSONInternal(tokens->tokens, tokens->tokenCount, &stack, JSON_OBJECT_TAG, NULL);
+	FreeTokenMemory(tokens);
 
 	if (json == NULL)
 	{
-		FreeTokenAndStackMemory(tokens, &stack);
 		return NULL;
 	}
-
-	JSON_Deallocate(tokens->tokens);
-
-	JSON_Deallocate(tokens);
-
-	JSON_Deallocate(stack.dividerStack);
 
 	return json;
 }
@@ -809,7 +573,7 @@ static char *MakeStringValueString(const char *str, const u32 strLen)
 	return memberNameString;
 }
 
-static char *MakeValueString(const JSON *json, const u32 stringSize, JSON_DIVIDER_STACK *stack)
+static char *MakeValueString(const JSON *json, const u32 stringSize)
 {
 	char *valueString = NULL;
 
@@ -872,7 +636,7 @@ static JSON_STRING_STRUCT *MakeJSONPrettyNewline(JSON_STRING_STRUCT *str)
 	return str;
 }
 
-static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDER_STACK *stack, const JSON *const json, const bool humanReadable)
+static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, const JSON *const json, const bool humanReadable)
 {
 	if (json->name != NULL)
 	{
@@ -889,12 +653,10 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 
 	if (HasTags(json, JSON_OBJECT_TAG))
 	{
-		DividerStackPush(stack, '{');
 		AppendCharToString(str, '{');
 	}
 	else if (HasTags(json, JSON_ARRAY_TAG))
 	{
-		DividerStackPush(stack, '[');
 		AppendCharToString(str, '[');
 	}
 
@@ -902,7 +664,7 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 	{
 		for (u32 i = 0; i < json->valueCount; ++i)
 		{
-			MakeJSONInternal(str, stack, json->values[i], humanReadable);
+			MakeJSONInternal(str, json->values[i], humanReadable);
 
 			if (i != json->valueCount - 1)
 			{
@@ -917,7 +679,7 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 	{
 		// TODO: @Jon
 		// Shouldn't hardcode the value string size!
-		char* valString = MakeValueString(json, 64, stack);
+		char* valString = MakeValueString(json, 64);
 
 		if (valString != NULL)
 		{
@@ -929,12 +691,10 @@ static JSON_STRING_STRUCT *MakeJSONInternal(JSON_STRING_STRUCT *str, JSON_DIVIDE
 
 	if (HasTags(json, JSON_OBJECT_TAG))
 	{
-		DividerStackPop(stack);
 		AppendCharToString(str, '}');
 	}
 	else if (HasTags(json, JSON_ARRAY_TAG))
 	{
-		DividerStackPop(stack);
 		AppendCharToString(str, ']');
 	}
 
@@ -950,16 +710,9 @@ const char * JSONLIB_MakeJSON(const JSON * const json, const bool humanReadable)
 	jsonString.length = 0;
 	jsonString.raw = (char*)JSON_Allocate(sizeof(char) * 1024);
 
-	JSON_DIVIDER_STACK stack;
-	stack.dividerStack = (enum JSON_TOKEN_TYPE*)JSON_Allocate(sizeof(enum JSON_TOKEN_TYPE) * JSON_DEFAULT_DIVIDER_STACK_SIZE);
-	stack.dividerCount = 0;
-	stack.dividerCapacity = JSON_DEFAULT_DIVIDER_STACK_SIZE;
-
-	MakeJSONInternal(&jsonString, &stack, json, humanReadable);
+	MakeJSONInternal(&jsonString, json, humanReadable);
 
 	AppendCharToString(&jsonString, '\0');
-
-	JSON_Deallocate(stack.dividerStack);
 
 	return jsonString.raw;
 }
