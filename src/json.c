@@ -51,9 +51,9 @@ typedef struct JSON_STRING_STRUCT
 // We're taking advantage of only supporting UTF-8 chars for some of the values
 enum JSON_TOKEN_TYPE
 {
-	JSON_NULL= 0,
+	JSON_NULL = 0,
 
-	IDENTIFIER,
+	VALUE,
 	INTEGER,
 	FLOAT,
 	STRING,
@@ -77,8 +77,9 @@ enum JSON_TOKEN_TYPE
 // Struct to store token information for the JSON
 typedef struct JSON_TOKEN
 {
-	enum JSON_TOKEN_TYPE type; // = JSON_TOKEN_TYPE::JSON_ERROR;
-	char* identifier; // = NULL;
+	enum JSON_TOKEN_TYPE type; // = JSON_TOKEN_TYPE::JSON_NULL;
+	char* str; // = NULL;
+	u32 inputPos; // = 0;
 } JSON_TOKEN;
 
 typedef struct JSON_TOKENS
@@ -91,7 +92,7 @@ typedef struct JSON_TOKENS
 static JSON_ALLOC JSON_Allocate = malloc;
 static JSON_DEALLOC JSON_Deallocate = free;
 
-static inline void PushToken(JSON_TOKENS* container, enum JSON_TOKEN_TYPE tokenType)
+static inline void PushToken(JSON_TOKENS* container, enum JSON_TOKEN_TYPE tokenType, const u32 inputPosition)
 {
 	if (container->tokenCount + 1 >= container->tokenCapacity)
 	{
@@ -105,52 +106,45 @@ static inline void PushToken(JSON_TOKENS* container, enum JSON_TOKEN_TYPE tokenT
 		container->tokenCapacity *= 2;
 	}
 
-	container->tokens[container->tokenCount++].type = tokenType;
+	JSON_TOKEN* currentToken = &container->tokens[container->tokenCount++];
+	currentToken->type = tokenType;
+	currentToken->inputPos = inputPosition;
 }
 
-// NOTE: @Jon
-// Parses an identifier
-static void ParseIdentifier(JSON_TOKEN *token, const char *ident, u32 valueLength)
+static inline JSON_TOKEN* GetLastToken(const JSON_TOKENS* container)
 {
-	token->type = IDENTIFIER;
-	token->identifier = (char*)JSON_Allocate(sizeof(char) * ((size_t)valueLength + 1));
-	token->identifier[valueLength] = '\0';
-	memcpy((void*)token->identifier, ident, sizeof(char) * (valueLength));
+	if (container->tokenCount == 0) return NULL;
+
+	return &container->tokens[container->tokenCount - 1];
+}
+
+static inline void CopyAllocateSubString(JSON_TOKEN* token, const char *value, u32 valueLength)
+{
+	token->str = (char*)JSON_Allocate(sizeof(char) * valueLength + 1);
+	token->str[valueLength] = '\0';
+	memcpy((void*)token->str, value, sizeof(char) * valueLength);
 }
 
 // NOTE: @Jon
 // Parses a value
+static void PushStringToken(JSON_TOKENS* container, const u32 inputPosition, const char *value, u32 valueLength)
+{
+	PushToken(container, STRING, inputPosition);
+	JSON_TOKEN* token = GetLastToken(container);
+	CopyAllocateSubString(token, value, valueLength);
+}
+
+static void PushValueToken(JSON_TOKENS* container, const u32 inputPosition, const char *value, u32 valueLength)
+{
+	PushToken(container, VALUE, inputPosition);
+	JSON_TOKEN* token = GetLastToken(container);
+	CopyAllocateSubString(token, value, valueLength);
+}
+
 static void ParseValue(JSON_TOKEN *token, const char *value, u32 valueLength)
 {
 	token->type = JSON_ERROR;
 
-	// If the value matches a string
-	if (value[0] == QUOTE && value[valueLength] == QUOTE)
-	{
-		token->type = STRING;
-		token->identifier = (char*)JSON_Allocate(sizeof(char) * (valueLength));
-		token->identifier[valueLength - 1] = '\0';
-		memcpy(token->identifier, &value[1], sizeof(char) * (valueLength - 1));
-		return;
-	}
-
-	// If it starts with a number
-	if ((value[0] > 47 && value[0] < 58) || value[0] == '-')
-	{
-		token->identifier = (char*)JSON_Allocate(sizeof(char) * ((size_t)valueLength + 1));
-		token->identifier[valueLength] = '\0';
-		memcpy(token->identifier, value, sizeof(char) * (valueLength));
-		for (u32 i = 0; i < valueLength; ++i)
-		{
-			if (value[i] == '.')
-			{
-				token->type = FLOAT;
-				return;
-			}
-		}
-		token->type = INTEGER;
-		return;
-	}
 
 	// If it's a boolean value
 	if ((value[0] == 't' && value[3] == 'e') || (value[0] == 'f'&& value[4] == 'e'))
@@ -338,32 +332,67 @@ static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength)
 
 	for (u32 i = 0; i < stringLength; ++i)
 	{
+		JSON_TOKEN* prevToken = GetLastToken(container);
+
 		switch (jsonString[i])
 		{
 			case LEFT_BRACE:
-				PushToken(container, LEFT_BRACE);
+				PushToken(container, LEFT_BRACE, i);
 				continue;
 			case RIGHT_BRACE:
-				PushToken(container, RIGHT_BRACE);
+				if (prevToken != NULL)
+				{
+					u32 tokenStart = prevToken->inputPos + 1;
+					u32 tokenEnd = i;
+
+					PushValueToken(container, tokenStart, &jsonString[tokenStart], tokenEnd - tokenStart);
+				}
+				PushToken(container, RIGHT_BRACE, i);
 				continue;
 			case LEFT_SQUARE_BRACKET:
-				PushToken(container, LEFT_SQUARE_BRACKET);
+				PushToken(container, LEFT_SQUARE_BRACKET, i);
 				continue;
 			case RIGHT_SQUARE_BRACKET:
-				PushToken(container, RIGHT_SQUARE_BRACKET);
+				PushToken(container, RIGHT_SQUARE_BRACKET, i);
 				continue;
 			case QUOTE:
-				PushToken(container, QUOTE);
+				{
+					if (prevToken != NULL && prevToken->type == QUOTE)
+					{
+						u32 stringStart = prevToken->inputPos + 1;
+						u32 stringEnd = i;
+						PushStringToken(container, stringStart, &jsonString[stringStart], stringEnd - stringStart);
+					}
+
+					PushToken(container, QUOTE, i);
+				}
 				continue;
 			case COLON:
-				PushToken(container, COLON);
+				PushToken(container, COLON, i);
 				continue;
 			case COMMA:
-				PushToken(container, COMMA);
+				{
+					if (prevToken != NULL)
+					{
+						u32 tokenStart = prevToken->inputPos + 1;
+						u32 tokenEnd = i;
+
+						PushValueToken(container, tokenStart, &jsonString[tokenStart], tokenEnd - tokenStart);
+					}
+
+					PushToken(container, COMMA, i);
+				}
 				continue;
 			default:
 				break;
 		}
+
+		if (prevToken == NULL) continue;
+
+		if (jsonString[i] == ' ') continue;
+
+
+
 	}
 	return container;
 }
@@ -430,7 +459,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, const u8 tags
 		}
 		case RIGHT_BRACE:
 			break;
-		case IDENTIFIER:
+		case VALUE:
 		{
 			// Allocate a node for this identifier
 			JSON *val = (JSON*)JSON_Allocate(sizeof(JSON));
@@ -438,7 +467,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, const u8 tags
 			assert(json->values != NULL);
 			json = val;
 
-			json->name = tokens[i].identifier;
+			json->name = tokens[i].str;
 			json->values = NULL;
 			json->valueCount = 0;
 			json->tags = 0;
@@ -452,7 +481,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, const u8 tags
 			if (HasTags(json, JSON_ARRAY_TAG))
 				AddValueToArray(&json);
 			// Add a string value to the node
-			AddStringValue(&json, tokens[i].identifier);
+			AddStringValue(&json, tokens[i].str);
 			break;
 		}
 		case INTEGER:
@@ -460,7 +489,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, const u8 tags
 			if (HasTags(json, JSON_ARRAY_TAG))
 				AddValueToArray(&json);
 			// Add an integer value to the node
-			AddIntegerValue(&json, tokens[i].identifier);
+			AddIntegerValue(&json, tokens[i].str);
 			break;
 		}
 		case FLOAT:
@@ -468,7 +497,7 @@ static JSON *ParseJSONInternal(JSON_TOKEN *tokens, u32 tokenCount, const u8 tags
 			if (HasTags(json, JSON_ARRAY_TAG))
 				AddValueToArray(&json);
 			// Add a float value to the node
-			AddDecimalValue(&json, tokens[i].identifier);
+			AddDecimalValue(&json, tokens[i].str);
 			break;
 		}
 		case JSON_TRUE:
@@ -513,8 +542,8 @@ static void FreeTokenMemory(JSON_TOKENS *tokens)
 {
 	for (u32 i = 0; i < tokens->tokenCount; ++i)
 	{
-		if (tokens->tokens[i].identifier != NULL)
-			JSON_Deallocate(tokens->tokens[i].identifier);
+		if (tokens->tokens[i].str != NULL)
+			JSON_Deallocate(tokens->tokens[i].str);
 	}
 	JSON_Deallocate(tokens->tokens);
 	JSON_Deallocate(tokens);
