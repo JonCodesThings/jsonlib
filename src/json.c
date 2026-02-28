@@ -14,7 +14,6 @@
 //  - Make C standard library dependencies optional (allow for user-provided alternatives to these functions)
 
 #define JSON_DEFAULT_TOKENS 32
-#define JSON_DEFAULT_DIVIDER_STACK_SIZE 4
 
 // NOTE: @Jon
 // Tags for JSON nodes
@@ -136,6 +135,8 @@ static void PushStringToken(JSON_TOKENS* container, const u32 inputPosition, con
 
 static void PushValueToken(JSON_TOKENS* container, const u32 inputPosition, const char *value, u32 valueLength)
 {
+	if (valueLength == 0) return;
+
 	PushToken(container, VALUE, inputPosition);
 	JSON_TOKEN* token = GetLastToken(container);
 	CopyAllocateSubString(token, value, valueLength);
@@ -337,9 +338,12 @@ static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength)
 		switch (jsonString[i])
 		{
 			case LEFT_BRACE:
-				PushToken(container, LEFT_BRACE, i);
+			case LEFT_SQUARE_BRACKET:
+				PushToken(container, jsonString[i], i);
 				continue;
 			case RIGHT_BRACE:
+			case RIGHT_SQUARE_BRACKET:
+			case COMMA:
 				if (prevToken != NULL)
 				{
 					u32 tokenStart = prevToken->inputPos + 1;
@@ -347,13 +351,7 @@ static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength)
 
 					PushValueToken(container, tokenStart, &jsonString[tokenStart], tokenEnd - tokenStart);
 				}
-				PushToken(container, RIGHT_BRACE, i);
-				continue;
-			case LEFT_SQUARE_BRACKET:
-				PushToken(container, LEFT_SQUARE_BRACKET, i);
-				continue;
-			case RIGHT_SQUARE_BRACKET:
-				PushToken(container, RIGHT_SQUARE_BRACKET, i);
+				PushToken(container, jsonString[i], i);
 				continue;
 			case QUOTE:
 				{
@@ -370,19 +368,6 @@ static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength)
 			case COLON:
 				PushToken(container, COLON, i);
 				continue;
-			case COMMA:
-				{
-					if (prevToken != NULL)
-					{
-						u32 tokenStart = prevToken->inputPos + 1;
-						u32 tokenEnd = i;
-
-						PushValueToken(container, tokenStart, &jsonString[tokenStart], tokenEnd - tokenStart);
-					}
-
-					PushToken(container, COMMA, i);
-				}
-				continue;
 			default:
 				break;
 		}
@@ -390,9 +375,6 @@ static JSON_TOKENS* Tokenise(const char* jsonString, u32 stringLength)
 		if (prevToken == NULL) continue;
 
 		if (jsonString[i] == ' ') continue;
-
-
-
 	}
 	return container;
 }
