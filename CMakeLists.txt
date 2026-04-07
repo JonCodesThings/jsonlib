@@ -7,7 +7,8 @@ option(OSLIB_HEADER "Use oslib platform header" OFF)
 
 include_directories(.)
 
-add_library(jsonlib STATIC src/json.c)
+add_library(jsonlib STATIC include/jsonlib/json.h)
+set_target_properties(jsonlib PROPERTIES LINKER_LANGUAGE C)
 
 set_target_properties(jsonlib PROPERTIES PREFIX "")
 
