@@ -375,3 +375,8 @@ _deps
 
 out/
 /CMakeSettings.json
+build/
+
+*.ninja
+*.ninja_log
+*.ninja_deps
