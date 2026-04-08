@@ -287,7 +287,8 @@ void JSONLIB_PushToken(JSONLIB_TOKENS* t, enum JSONLIB_TOKEN_TYPE type, const u3
 JSONLIB_TOKENS JSONLIB_TokeniseString(const char* str, const u32 strLength)
 {
 	JSONLIB_TOKENS tContainer;
-	tContainer.capacity = tContainer.count = 2;
+	tContainer.count = 0;
+	tContainer.capacity = 2;
 	tContainer.processed = 0;
 	tContainer.tokens = JSONLIB_Allocate(sizeof(JSONLIB_TOKEN)* tContainer.capacity);
 	tContainer.inputStr = str;
