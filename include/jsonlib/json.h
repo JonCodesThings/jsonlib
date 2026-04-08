@@ -219,6 +219,18 @@ enum JSONLIB_TOKEN_TYPE
 	JSONLIB_PLUS = '+',
 	JSONLIB_DOT = '.',
 
+	// Digit tokens
+	JSONLIB_0 = '0',
+	JSONLIB_1 = '1',
+	JSONLIB_2 = '2',
+	JSONLIB_3 = '3',
+	JSONLIB_4 = '4',
+	JSONLIB_5 = '5',
+	JSONLIB_6 = '6',
+	JSONLIB_7 = '7',
+	JSONLIB_8 = '8',
+	JSONLIB_9 = '9',
+
 	// Whitespace tokens
 	JSONLIB_SPACE 	= ' ',
 	JSONLIB_RETURN 	= '\r',
@@ -240,6 +252,7 @@ typedef struct JSONLIB_TOKEN
 
 typedef struct JSONLIB_TOKENS
 {
+	const char* inputStr;
 	JSONLIB_TOKEN *tokens;
 	u32 count;
 	u32 capacity;
@@ -277,6 +290,7 @@ JSONLIB_TOKENS JSONLIB_TokeniseString(const char* str, const u32 strLength)
 	tContainer.capacity = tContainer.count = 2;
 	tContainer.processed = 0;
 	tContainer.tokens = JSONLIB_Allocate(sizeof(JSONLIB_TOKEN)* tContainer.capacity);
+	tContainer.inputStr = str;
 
 	for (u32 iter = 0; iter < strLength; iter++)
 	{
@@ -299,6 +313,17 @@ JSONLIB_TOKENS JSONLIB_TokeniseString(const char* str, const u32 strLength)
 			case JSONLIB_PLUS:
 			case JSONLIB_DOT:
 
+			case JSONLIB_0:
+			case JSONLIB_1:
+			case JSONLIB_2:
+			case JSONLIB_3:
+			case JSONLIB_4:
+			case JSONLIB_5:
+			case JSONLIB_6:
+			case JSONLIB_7:
+			case JSONLIB_8:
+			case JSONLIB_9:
+
 			case JSONLIB_SPACE:
 			case JSONLIB_RETURN:
 			case JSONLIB_NEWLINE:
@@ -310,6 +335,14 @@ JSONLIB_TOKENS JSONLIB_TokeniseString(const char* str, const u32 strLength)
 
 	return tContainer;
 }
+
+void JSONLIB_CleanupContainer(JSONLIB_TOKENS* tContainer)
+{
+	JSONLIB_Deallocate(tContainer->tokens);
+	JSONLIB_Deallocate(tContainer);
+}
+
+JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* tContainer);
 
 void JSONLIB_IgnoreWhitespace(JSONLIB_TOKENS* tContainer)
 {
@@ -327,14 +360,47 @@ void JSONLIB_IgnoreWhitespace(JSONLIB_TOKENS* tContainer)
 
 const char* JSONLIB_ParseString(JSONLIB_TOKENS* tContainer)
 {
-	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_QUOTE) return NULL;
+	// Grab our starting token and validate we're parsing a string value
+	const JSONLIB_TOKEN* strStart = &tContainer->tokens[tContainer->processed++];
+	if (strStart->type != JSONLIB_QUOTE) return NULL;
 
+	// Skip over all non-QUOTE tokens
+	const JSONLIB_TOKEN* iter = &tContainer->tokens[tContainer->processed];
+	while (iter->type != JSONLIB_QUOTE && tContainer->processed < tContainer->count)
+	{
+		tContainer->processed++;
+		iter = &tContainer->tokens[tContainer->processed];
+	}
 
+	// Grab our ending token and validate it matches what we're expecting
+	const JSONLIB_TOKEN* strEnd = &tContainer->tokens[tContainer->processed];
+	if (strEnd->type != JSONLIB_QUOTE) return NULL;
+
+	// Using the input positions copy the string data over to the JSONLIB heap
+	// This string is NULL-terminated hence the additional char allocated
+	const u32 parsedStrLength = strEnd->inputPos - strStart->inputPos;
+	char* parsedStr = JSONLIB_Allocate(sizeof(char) * parsedStrLength + 1); 
+	memcpy(parsedStr, &tContainer->inputStr[strStart->inputPos + 1], sizeof(char) * parsedStrLength);
+	parsedStr[parsedStrLength] = '\0';
+
+	return parsedStr;
 }
 
 JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* tContainer)
 {
 	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_LEFT_SQUARE_BRACKET) return NULL;
+
+	while (tContainer->tokens[tContainer->processed].type != JSONLIB_COMMA && tContainer->tokens[tContainer->processed].type != JSONLIB_RIGHT_SQUARE_BRACKET)
+	{
+		tContainer->processed++;
+		JSONLIB_IgnoreWhitespace(tContainer);
+
+		JSONLIB_ParseValue(tContainer);
+	}
+
+	JSONLIB_IgnoreWhitespace(tContainer);
+
+	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_RIGHT_SQUARE_BRACKET) return NULL;
 }
 
 JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* tContainer)
@@ -345,12 +411,18 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* tContainer)
 
 	switch (type)
 	{
-		case JSONLIB_TOKEN_TYPE::JSONLIB_LEFT_SQUARE_BRACKET: return JSONLIB_ParseArray(tContainer);
-		case JSONLIB_TOKEN_TYPE::JSONLIB_LEFT_BRACE: return JSONLIB_ParseObject(tContainer);
-		case JSONLIB_TOKEN_TYPE::JSONLIB_QUOTE: return JSONLIB_ParseString(tContainer);
-		case JSONLIB_TOKEN_TYPE::JSONLIB_TRUE:
-		case JSONLIB_TOKEN_TYPE::JSONLIB_FALSE:
-		case JSONLIB_TOKEN_TYPE::JSONLIB_NULL:
+		case JSONLIB_LEFT_SQUARE_BRACKET: 
+		{
+			return JSONLIB_ParseArray(tContainer);
+		}
+		case JSONLIB_LEFT_BRACE: return JSONLIB_ParseObject(tContainer);
+		case JSONLIB_QUOTE:
+		{
+			const char* str = JSONLIB_ParseString(tContainer);
+		}
+		case JSONLIB_TRUE:
+		case JSONLIB_FALSE:
+		case JSONLIB_NULL:
 			break;
 
 		default: return NULL;
@@ -361,22 +433,42 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* tContainer)
 
 JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* tContainer)
 {
+	// TODO: @Jon
+	// Handle dellocation on parsing errors here?
 	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_LEFT_BRACE) return NULL;
 
+	JSONptr parsedObj = JSONLIB_Allocate(sizeof(JSON));
+
+	while (tContainer->tokens[tContainer->processed].type != JSONLIB_COMMA && tContainer->tokens[tContainer->processed].type != JSONLIB_RIGHT_BRACE)
+	{
+		tContainer->processed++;
+
+		JSONLIB_IgnoreWhitespace(tContainer);
+
+		const char* name = JSONLIB_ParseString(tContainer);
+
+		JSONLIB_IgnoreWhitespace(tContainer);
+
+		// TODO: @Jon
+		// Handle dellocation on parsing errors here?
+		if (tContainer->tokens[tContainer->processed++].type != JSONLIB_COLON) return NULL; 
+
+		JSONLIB_ParseValue(tContainer);
+	}
+	
 	JSONLIB_IgnoreWhitespace(tContainer);
 
-	const char* name = JSONLIB_ParseString(tContainer);
+	// TODO: @Jon
+	// Handle dellocation on parsing errors here?
+	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_RIGHT_BRACE) return NULL;
 
-	JSONLIB_IgnoreWhitespace(tContainer);
-
-	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_COLON) return NULL;
-
+	return parsedObj;
 }
 
 JSONptr JSONLIB_ParseJSON(const char *jsonString, u32 stringLength)
 {
 	JSONLIB_TOKENS tContainer = JSONLIB_TokeniseString(jsonString, stringLength);
-	return JSONLIB_ParseObject(&tContainer);
+	JSONptr root = JSONLIB_ParseObject(&tContainer);
 }
 
 #endif
