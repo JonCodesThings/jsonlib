@@ -7,7 +7,7 @@
 #include <string.h>
 #endif
 
-#ifdef JSONLIB_HEADER
+#if defined(JSONLIB_HEADER) || defined(JSONLIB_IMPLEMENTATION)
 // TODO: @Jon
 // Add more platforms/compilers to this as needed
 #ifdef OSLIB_PLATFORM_HEADER
@@ -89,7 +89,7 @@ typedef struct JSON
 		const char *string;
 
 		// Values stores a flat array of values, with valueCount keeping track of how many there are
-		struct JSONptr * values; //= NULL;
+		JSONptr *values; //= NULL;
 	};
 } JSON;
 
@@ -112,28 +112,28 @@ const char *JSONLIB_MakeJSON(const JSONptr const json, const u8 flags);
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSONptr  JSONLIB_AllocateJSON(const char* name, struct JSONptr  parent);
+JSONptr  JSONLIB_AllocateJSON(const char* name, JSONptr parent);
 
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSONptr  JSONLIB_AllocateIntegerJSON(const char* name, struct JSONptr  parent, const i32 integer);
+JSONptr  JSONLIB_AllocateIntegerJSON(const char* name, JSONptr parent, const i32 integer);
 
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSONptr  JSONLIB_AllocateStringJSON(const char* name, struct JSONptr  parent, const char* string);
+JSONptr  JSONLIB_AllocateStringJSON(const char* name, JSONptr parent, const char* string);
 
 
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSONptr  JSONLIB_AllocateBooleanJSON(const char* name, struct JSONptr  parent, const i32 isTrue);
+JSONptr  JSONLIB_AllocateBooleanJSON(const char* name, JSONptr parent, const i32 isTrue);
 
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSONptr  JSONLIB_AllocateDecimalJSON(const char* name, struct JSONptr  parent, f32 decimal);
+JSONptr  JSONLIB_AllocateDecimalJSON(const char* name, JSONptr parent, f32 decimal);
 
 // NOTE: @Jon
 // Adds a node as a child of another node
@@ -343,6 +343,8 @@ void JSONLIB_CleanupContainer(JSONLIB_TOKENS* tContainer)
 }
 
 JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* tContainer);
+JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* tContainer);
+JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* tContainer);
 
 void JSONLIB_IgnoreWhitespace(JSONLIB_TOKENS* tContainer)
 {
@@ -386,23 +388,6 @@ const char* JSONLIB_ParseString(JSONLIB_TOKENS* tContainer)
 	return parsedStr;
 }
 
-JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* tContainer)
-{
-	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_LEFT_SQUARE_BRACKET) return NULL;
-
-	while (tContainer->tokens[tContainer->processed].type != JSONLIB_COMMA && tContainer->tokens[tContainer->processed].type != JSONLIB_RIGHT_SQUARE_BRACKET)
-	{
-		tContainer->processed++;
-		JSONLIB_IgnoreWhitespace(tContainer);
-
-		JSONLIB_ParseValue(tContainer);
-	}
-
-	JSONLIB_IgnoreWhitespace(tContainer);
-
-	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_RIGHT_SQUARE_BRACKET) return NULL;
-}
-
 JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* tContainer)
 {
 	JSONLIB_IgnoreWhitespace(tContainer);
@@ -429,6 +414,23 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* tContainer)
 	}
 
 	JSONLIB_IgnoreWhitespace(tContainer);
+}
+
+JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* tContainer)
+{
+	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_LEFT_SQUARE_BRACKET) return NULL;
+
+	while (tContainer->tokens[tContainer->processed].type != JSONLIB_COMMA && tContainer->tokens[tContainer->processed].type != JSONLIB_RIGHT_SQUARE_BRACKET)
+	{
+		tContainer->processed++;
+		JSONLIB_IgnoreWhitespace(tContainer);
+
+		JSONLIB_ParseValue(tContainer);
+	}
+
+	JSONLIB_IgnoreWhitespace(tContainer);
+
+	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_RIGHT_SQUARE_BRACKET) return NULL;
 }
 
 JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* tContainer)
@@ -469,6 +471,22 @@ JSONptr JSONLIB_ParseJSON(const char *jsonString, u32 stringLength)
 {
 	JSONLIB_TOKENS tContainer = JSONLIB_TokeniseString(jsonString, stringLength);
 	JSONptr root = JSONLIB_ParseObject(&tContainer);
+	return root;
+}
+
+const char *JSONLIB_MakeJSON(const JSONptr const json, const u8 flags)
+{
+	return NULL;
+}
+
+void JSONLIB_FreeJSON(JSONptr json)
+{
+
+}
+
+void JSONLIB_ClearJSON(const char *str)
+{
+	JSONLIB_Deallocate((void*)str);
 }
 
 #endif
