@@ -4,6 +4,7 @@
 #ifndef JSONLIB_NO_STDLIB
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 #endif
 
 #ifdef JSONLIB_HEADER
@@ -63,13 +64,14 @@ extern const u8 JSONLIB_OBJECT_TAG;
 extern const u8 JSONLIB_BOOLEAN_TAG;
 extern const u8 JSONLIB_NULL_TAG;
 
+typedef struct JSON* JSONptr;
 
 // NOTE: @Jon
 // Node in the JSON tree
 typedef struct JSON
 {
 	// Parent links to the parent node of this
-	struct JSON* parent; //= NULL;
+	JSONptr parent; //= NULL;
 
 	u32 valueCount; //= 0;
 
@@ -87,9 +89,10 @@ typedef struct JSON
 		const char *string;
 
 		// Values stores a flat array of values, with valueCount keeping track of how many there are
-		struct JSON** values; //= NULL;
+		struct JSONptr * values; //= NULL;
 	};
 } JSON;
+
 
 
 // NOTE: @Jon
@@ -98,49 +101,51 @@ void JSONLIB_SetAllocator(JSONLIB_ALLOC alloc, JSONLIB_DEALLOC dealloc);
 
 // NOTE: @Jon
 // Parses a JSON string
-JSON *JSONLIB_ParseJSON(const char *jsonString, u32 stringLength);
+// The string need not be null-terminated
+JSONptr JSONLIB_ParseJSON(const char *jsonString, u32 stringLength);
 
 // NOTE: @Jon
 // Constructs a JSON string from a given tree
-const char *JSONLIB_MakeJSON(const JSON *const json, const u8 flags);
+// The returnded string will be null-terminated
+const char *JSONLIB_MakeJSON(const JSONptr const json, const u8 flags);
 
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSON* JSONLIB_AllocateJSON(const char* name, struct JSON* parent);
+JSONptr  JSONLIB_AllocateJSON(const char* name, struct JSONptr  parent);
 
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSON* JSONLIB_AllocateIntegerJSON(const char* name, struct JSON* parent, const i32 integer);
+JSONptr  JSONLIB_AllocateIntegerJSON(const char* name, struct JSONptr  parent, const i32 integer);
 
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSON* JSONLIB_AllocateStringJSON(const char* name, struct JSON* parent, const char* string);
+JSONptr  JSONLIB_AllocateStringJSON(const char* name, struct JSONptr  parent, const char* string);
 
 
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSON* JSONLIB_AllocateBooleanJSON(const char* name, struct JSON* parent, const i32 isTrue);
+JSONptr  JSONLIB_AllocateBooleanJSON(const char* name, struct JSONptr  parent, const i32 isTrue);
 
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSON* JSONLIB_AllocateDecimalJSON(const char* name, struct JSON* parent, f32 decimal);
+JSONptr  JSONLIB_AllocateDecimalJSON(const char* name, struct JSONptr  parent, f32 decimal);
 
 // NOTE: @Jon
 // Adds a node as a child of another node
-void JSONLIB_AddValueJSON(JSON *json, JSON *val);
+void JSONLIB_AddValueJSON(JSONptr json, JSONptr val);
 
 // NOTE: @Jon
 // Gets a value by name from a given node
-JSON *JSONLIB_GetValueJSON(const char *name, u32 nameLength, JSON *json);
+JSONptr JSONLIB_GetValueJSON(const char *name, u32 nameLength, JSONptr json);
 
 // NOTE: @Jon
 // Frees memory associated with a given node and all of its children
-void JSONLIB_FreeJSON(JSON *json);
+void JSONLIB_FreeJSON(JSONptr json);
 
 // NOTE: @Jon
 // Frees memory associated with a given string
@@ -230,15 +235,15 @@ enum JSONLIB_TOKEN_TYPE
 typedef struct JSONLIB_TOKEN
 {
 	enum JSONLIB_TOKEN_TYPE type; // = JSONLIB_TOKEN_TYPE::JSONLIB_NULL;
-	char* str; // = NULL;
 	u32 inputPos; // = 0;
 } JSONLIB_TOKEN;
 
 typedef struct JSONLIB_TOKENS
 {
 	JSONLIB_TOKEN *tokens;
-	u32 tokenCount;
-	u32 tokenCapacity;
+	u32 count;
+	u32 capacity;
+	u32 processed;
 } JSONLIB_TOKENS;
 
 static JSONLIB_ALLOC 	JSONLIB_Allocate = malloc;
@@ -248,6 +253,130 @@ void JSONLIB_SetAllocator(JSONLIB_ALLOC alloc, JSONLIB_DEALLOC dealloc)
 {
 	JSONLIB_Allocate = alloc;
 	JSONLIB_Deallocate = dealloc;
+}
+
+void JSONLIB_PushToken(JSONLIB_TOKENS* t, enum JSONLIB_TOKEN_TYPE type, const u32 inputPos)
+{
+	if (t->count + 1 > t->capacity)
+	{
+		JSONLIB_TOKEN* newTokens = JSONLIB_Allocate(sizeof(JSONLIB_TOKEN) * t->capacity * 2);
+		t->capacity *= 2;
+		memcpy(newTokens, t->tokens, sizeof(JSONLIB_TOKEN) * t->count);
+		JSONLIB_Deallocate(t->tokens);
+		t->tokens = newTokens;
+	}
+
+	JSONLIB_TOKEN* token = &t->tokens[t->count++];
+	token->type = type;
+	token->inputPos = inputPos;
+}
+
+JSONLIB_TOKENS JSONLIB_TokeniseString(const char* str, const u32 strLength)
+{
+	JSONLIB_TOKENS tContainer;
+	tContainer.capacity = tContainer.count = 2;
+	tContainer.processed = 0;
+	tContainer.tokens = JSONLIB_Allocate(sizeof(JSONLIB_TOKEN)* tContainer.capacity);
+
+	for (u32 iter = 0; iter < strLength; iter++)
+	{
+		switch(str[iter])
+		{
+			case JSONLIB_LEFT_BRACE:
+			case JSONLIB_RIGHT_BRACE:
+			case JSONLIB_COLON:
+
+			case JSONLIB_LEFT_SQUARE_BRACKET:
+			case JSONLIB_RIGHT_SQUARE_BRACKET:
+			case JSONLIB_COMMA:
+
+			case JSONLIB_QUOTE:
+			case JSONLIB_u:
+
+			case JSONLIB_E:
+			case JSONLIB_e:
+			case JSONLIB_MINUS:
+			case JSONLIB_PLUS:
+			case JSONLIB_DOT:
+
+			case JSONLIB_SPACE:
+			case JSONLIB_RETURN:
+			case JSONLIB_NEWLINE:
+			case JSONLIB_TAB:
+				JSONLIB_PushToken(&tContainer, str[iter], iter);
+				continue;
+		}
+	}
+
+	return tContainer;
+}
+
+void JSONLIB_IgnoreWhitespace(JSONLIB_TOKENS* tContainer)
+{
+	while (tContainer->processed < tContainer->count)
+	{
+		const enum JSONLIB_TOKEN_TYPE type = tContainer->tokens[tContainer->processed].type;
+		if (type == JSONLIB_SPACE || type == JSONLIB_RETURN 
+			|| type == JSONLIB_NEWLINE || type == JSONLIB_TAB)
+		{
+			tContainer->processed++;
+		}
+		break;
+	}
+}
+
+const char* JSONLIB_ParseString(JSONLIB_TOKENS* tContainer)
+{
+	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_QUOTE) return NULL;
+
+
+}
+
+JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* tContainer)
+{
+	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_LEFT_SQUARE_BRACKET) return NULL;
+}
+
+JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* tContainer)
+{
+	JSONLIB_IgnoreWhitespace(tContainer);
+
+	const enum JSONLIB_TOKEN_TYPE type = tContainer->tokens[tContainer->processed].type;
+
+	switch (type)
+	{
+		case JSONLIB_TOKEN_TYPE::JSONLIB_LEFT_SQUARE_BRACKET: return JSONLIB_ParseArray(tContainer);
+		case JSONLIB_TOKEN_TYPE::JSONLIB_LEFT_BRACE: return JSONLIB_ParseObject(tContainer);
+		case JSONLIB_TOKEN_TYPE::JSONLIB_QUOTE: return JSONLIB_ParseString(tContainer);
+		case JSONLIB_TOKEN_TYPE::JSONLIB_TRUE:
+		case JSONLIB_TOKEN_TYPE::JSONLIB_FALSE:
+		case JSONLIB_TOKEN_TYPE::JSONLIB_NULL:
+			break;
+
+		default: return NULL;
+	}
+
+	JSONLIB_IgnoreWhitespace(tContainer);
+}
+
+JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* tContainer)
+{
+	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_LEFT_BRACE) return NULL;
+
+	JSONLIB_IgnoreWhitespace(tContainer);
+
+	const char* name = JSONLIB_ParseString(tContainer);
+
+	JSONLIB_IgnoreWhitespace(tContainer);
+
+	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_COLON) return NULL;
+
+}
+
+JSONptr JSONLIB_ParseJSON(const char *jsonString, u32 stringLength)
+{
+	JSONLIB_TOKENS tContainer = JSONLIB_TokeniseString(jsonString, stringLength);
+	return JSONLIB_ParseObject(&tContainer);
 }
 
 #endif
