@@ -381,7 +381,7 @@ const char* JSONLIB_ParseString(JSONLIB_TOKENS* tContainer)
 
 	// Using the input positions copy the string data over to the JSONLIB heap
 	// This string is NULL-terminated hence the additional char allocated
-	const u32 parsedStrLength = strEnd->inputPos - strStart->inputPos;
+	const u32 parsedStrLength = strEnd->inputPos - strStart->inputPos - 1;
 	char* parsedStr = JSONLIB_Allocate(sizeof(char) * parsedStrLength + 1); 
 	memcpy(parsedStr, &tContainer->inputStr[strStart->inputPos + 1], sizeof(char) * parsedStrLength);
 	parsedStr[parsedStrLength] = '\0';
@@ -405,6 +405,13 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* tContainer)
 		case JSONLIB_QUOTE:
 		{
 			const char* str = JSONLIB_ParseString(tContainer);
+
+			JSONptr strValueObj = JSONLIB_Allocate(sizeof(JSON));
+			strValueObj->valueCount = 0;
+			strValueObj->tags = JSONLIB_STRING_TAG;
+			strValueObj->string = str;
+			return strValueObj;
+
 		}
 		case JSONLIB_TRUE:
 		case JSONLIB_FALSE:
@@ -441,6 +448,9 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* tContainer)
 	if (tContainer->tokens[tContainer->processed++].type != JSONLIB_LEFT_BRACE) return NULL;
 
 	JSONptr parsedObj = JSONLIB_Allocate(sizeof(JSON));
+	parsedObj->tags = JSONLIB_OBJECT_TAG;
+	parsedObj->values = NULL;
+	parsedObj->valueCount = 0;
 
 	while (tContainer->tokens[tContainer->processed].type != JSONLIB_COMMA && tContainer->tokens[tContainer->processed].type != JSONLIB_RIGHT_BRACE)
 	{
@@ -456,7 +466,14 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* tContainer)
 		// Handle dellocation on parsing errors here?
 		if (tContainer->tokens[tContainer->processed++].type != JSONLIB_COLON) return NULL; 
 
-		JSONLIB_ParseValue(tContainer);
+		JSONptr parsedValue = JSONLIB_ParseValue(tContainer);
+		parsedValue->parent = parsedObj;
+		parsedValue->name = name;
+
+		const u32 valueCount = parsedObj->valueCount + 1;
+		parsedObj->values = JSONLIB_Allocate(sizeof(JSON*) * valueCount);
+		parsedObj->values[0] = parsedValue;
+		parsedObj->valueCount = valueCount;
 	}
 	
 	JSONLIB_IgnoreWhitespace(tContainer);
