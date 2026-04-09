@@ -208,6 +208,14 @@ enum JSONLIB_TOKEN_TYPE
 	JSONLIB_RIGHT_SQUARE_BRACKET = ']',
 	JSONLIB_COMMA = ',',
 
+	// Value tokens
+	JSONLIB_t = 't',
+	JSONLIB_r = 'r',
+	JSONLIB_f = 'f',
+	JSONLIB_l = 'l',
+	JSONLIB_s = 's',
+	JSONLIB_n = 'n',
+
 	// String tokens
 	JSONLIB_QUOTE = '"',
 	JSONLIB_u = 'u', // used for hexadecimal parsing
@@ -241,6 +249,10 @@ enum JSONLIB_TOKEN_TYPE
 	JSONLIB_EOF,
 	JSONLIB_ERROR
 };
+
+static JSONLIB_TOKEN JSONLIB_TOKEN_TRUE_PATTERN[] 	= { JSONLIB_t, JSONLIB_r, JSONLIB_u, JSONLIB_e };
+static JSONLIB_TOKEN JSONLIB_TOKEN_FALSE_PATTERN[] 	= { JSONLIB_f, JSONLIB_a, JSONLIB_l, JSONLIB_s, JSONLIB_e };
+static JSONLIB_TOKEN JSONLIB_TOKEN_NULL_PATTERN[] 	= { JSONLIB_n, JSONLIB_u, JSONLIB_l, JSONLIB_l };
 
 // NOTE: @Jon
 // Struct to store token information for the JSON
@@ -314,6 +326,13 @@ JSONLIB_TOKENS JSONLIB_TokeniseString(const char* str, const u32 strLength)
 			case JSONLIB_PLUS:
 			case JSONLIB_DOT:
 
+			case JSONLIB_t:
+			case JSONLIB_r:
+			case JSONLIB_f:
+			case JSONLIB_l:
+			case JSONLIB_s:
+			case JSONLIB_n:
+
 			case JSONLIB_0:
 			case JSONLIB_1:
 			case JSONLIB_2:
@@ -376,8 +395,7 @@ const char* JSONLIB_ParseString(JSONLIB_TOKENS* tContainer)
 	}
 
 	// Grab our ending token and validate it matches what we're expecting
-	const JSONLIB_TOKEN* strEnd = &tContainer->tokens[tContainer->processed];
-	if (strEnd->type != JSONLIB_QUOTE) return NULL;
+	const JSONLIB_TOKEN* strEnd = &tContainer->tokens[tContainer->processed++];
 
 	// Using the input positions copy the string data over to the JSONLIB heap
 	// This string is NULL-terminated hence the additional char allocated
@@ -397,7 +415,7 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* tContainer)
 
 	switch (type)
 	{
-		case JSONLIB_LEFT_SQUARE_BRACKET: 
+		case JSONLIB_LEFT_SQUARE_BRACKET:
 		{
 			return JSONLIB_ParseArray(tContainer);
 		}
