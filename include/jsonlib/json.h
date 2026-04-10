@@ -174,12 +174,6 @@ const u8 JSONLIB_BOOLEAN_TAG = 1 << 5;
 const u8 JSONLIB_NULL_TAG = 1 << 6;
 
 // NOTE: @Jon
-// Some useful strings
-static const char* const JSONLIBtrueStr = "true";
-static const char* const JSONLIBfalseStr = "false";
-static const char* const JSONLIBnullStr = "null";
-
-// NOTE: @Jon
 // A struct for handling a char * string
 typedef struct JSONLIB_STRING_STRUCT
 {
