@@ -511,7 +511,25 @@ const char *JSONLIB_MakeJSON(const JSONptr const json, const u8 flags)
 
 void JSONLIB_FreeJSON(JSONptr json)
 {
+	for (u32 valIter = 0; valIter < json->valueCount; valIter++)
+	{
+		JSONLIB_FreeJSON(&json->values[valIter]);
+	}
 
+	json->valueCount = 0;
+	JSONLIB_Deallocate(json->values);
+
+	if (json->name != NULL)
+	{
+		JSONLIB_Deallocate(json->name);
+	}
+
+	if (json->tags & JSONLIB_STRING_TAG)
+	{
+		JSONLIB_Deallocate(json->str);
+	}
+
+	JSONLIB_Deallocate(json);
 }
 
 void JSONLIB_ClearJSON(const char *str)
