@@ -1,3 +1,4 @@
+#define JSONLIB_IMPLEMENTATION
 #include <include/jsonlib/json.h>
 
 #include <assert.h>
@@ -20,9 +21,9 @@ int main()
 
 	assert(!strcmp(json->values[0]->name, "boolean"));
 
-	assert(json->values[0]->boolean == false);
+	assert((json->values[0]->tags & JSONLIB_FALSE_TAG));
 
-	const char* jsonStr = JSONLIB_MakeJSON(json, false);
+	const char* jsonStr = JSONLIB_MakeJSON(json, 0);
 
 	assert(!strcmp(str, jsonStr));
 

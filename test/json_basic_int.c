@@ -1,3 +1,4 @@
+#define JSONLIB_IMPLEMENTATION
 #include <include/jsonlib/json.h>
 
 #include <assert.h>
@@ -22,7 +23,7 @@ int main()
 
 	assert(json->values[0]->integer == 32);
 
-	const char* jsonStr = JSONLIB_MakeJSON(json, false);
+	const char* jsonStr = JSONLIB_MakeJSON(json, 0);
 
 	assert(!strcmp(str, jsonStr));
 

@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 
-u32 allocations;
+unsigned int allocations;
 
 void InitTESTAllocatorContext()
 {

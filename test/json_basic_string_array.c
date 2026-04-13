@@ -1,3 +1,4 @@
+#define JSONLIB_IMPLEMENTATION
 #include <include/jsonlib/json.h>
 
 #include <assert.h>
@@ -30,7 +31,7 @@ int main()
 
 	assert(!strcmp(array->values[2]->string, "hmm"));
 
-	const char* jsonStr = JSONLIB_MakeJSON(json, false);
+	const char* jsonStr = JSONLIB_MakeJSON(json, 0);
 
 	assert(!strcmp(str, jsonStr));
 

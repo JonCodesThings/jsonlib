@@ -1,3 +1,4 @@
+#define JSONLIB_IMPLEMENTATION
 #include <include/jsonlib/json.h>
 
 #include <assert.h>
@@ -18,25 +19,25 @@ int main()
 
 	assert(json->valueCount == 1);
 
-	assert(json->values[0]->tags & JSON_OBJECT_TAG);
+	assert(json->values[0]->tags & JSONLIB_OBJECT_TAG);
 
 	JSON* object = json->values[0];
 
 	assert(object->valueCount == 1);
 
-	assert(object->tags & JSON_OBJECT_TAG);
+	assert(object->tags & JSONLIB_OBJECT_TAG);
 
 	assert(!strcmp(object->name, "object"));
 
 	JSON* value = object->values[0];
 
-	assert(value->tags & JSON_INTEGER_TAG);
+	assert(value->tags & JSONLIB_INTEGER_TAG);
 
 	assert(!strcmp(value->name, "value"));
 
 	assert(value->integer == 12);
 
-	const char* jsonStr = JSONLIB_MakeJSON(json, false);
+	const char* jsonStr = JSONLIB_MakeJSON(json, 0);
 
 	assert(!strcmp(str, jsonStr));
 
