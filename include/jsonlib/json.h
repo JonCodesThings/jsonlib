@@ -322,6 +322,7 @@ JSONLIB_TOKEN* JSONLIB_CheckTokenPattern(JSONLIB_TOKENS* container, enum JSONLIB
 	container->count -= patternLength;
 	container->tokens[startToken].type = patternType;
 	return &container->tokens[startToken];
+}
 
 void JSONLIB_TokenPatternMatch(JSONLIB_TOKENS* container)
 {
@@ -386,6 +387,7 @@ JSONLIB_TOKENS JSONLIB_TokeniseString(const char* str, const u32 strLength)
 			case JSONLIB_t:
 			case JSONLIB_r:
 			case JSONLIB_f:
+			case JSONLIB_a:
 			case JSONLIB_l:
 			case JSONLIB_s:
 			case JSONLIB_n:
