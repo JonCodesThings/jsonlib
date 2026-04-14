@@ -623,7 +623,6 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container, const char* name)
 
 		JSONptr parsedValue = JSONLIB_ParseValue(container, name);
 		parsedValue->parent = parsedObj;
-		parsedValue->name = name;
 
 		// TODO: @Jon
 		// Might make this a two-step process, figure out the number of values first and then allocate them once
