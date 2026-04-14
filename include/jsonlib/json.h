@@ -367,6 +367,8 @@ JSONLIB_TOKENS JSONLIB_TokeniseString(const char* str, const u32 strLength)
 	{
 		switch(str[iter])
 		{
+			default: continue;
+
 			case JSONLIB_LEFT_BRACE:
 			case JSONLIB_RIGHT_BRACE:
 			case JSONLIB_COLON:
@@ -408,6 +410,7 @@ JSONLIB_TOKENS JSONLIB_TokeniseString(const char* str, const u32 strLength)
 			case JSONLIB_NEWLINE:
 			case JSONLIB_TAB:
 				JSONLIB_PushToken(&container, str[iter], iter);
+				break;
 		}
 
 		JSONLIB_TokenPatternMatch(&container);
@@ -431,9 +434,8 @@ void JSONLIB_CleanupContainer(JSONLIB_TOKENS* container)
 	JSONLIB_Deallocate(container);
 }
 
-JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container);
-JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* container, const char* name);
-JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* container);
+JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container, const char* name);
+JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* container, const char* name);
 
 void JSONLIB_IgnoreWhitespace(JSONLIB_TOKENS* container)
 {
@@ -491,14 +493,14 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* container, const char* name)
 
 	switch (type)
 	{
-		case JSONLIB_LEFT_SQUARE_BRACKET: return JSONLIB_ParseArray(container);
-		case JSONLIB_LEFT_BRACE: return JSONLIB_ParseObject(container);
+		case JSONLIB_LEFT_SQUARE_BRACKET: return JSONLIB_ParseArray(container, name);
+		case JSONLIB_LEFT_BRACE: return JSONLIB_ParseObject(container, name);
 		case JSONLIB_QUOTE:
 		{
 			const char* str = JSONLIB_ParseString(container);
 			return JSONLIB_AllocateStringJSON(name, NULL, str);
 		}
-		case JSONLIB_TRUE:	
+		case JSONLIB_TRUE:
 		{
 			container->processed++;
 			return JSONLIB_AllocateBooleanJSON(name, NULL, 1);
@@ -519,24 +521,63 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* container, const char* name)
 	JSONLIB_IgnoreWhitespace(container);
 }
 
-JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* container)
+JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* container, const char* name)
 {
-	if (container->tokens[container->processed++].type != JSONLIB_LEFT_SQUARE_BRACKET) return NULL;
-
-	while (container->tokens[container->processed].type != JSONLIB_COMMA && container->tokens[container->processed].type != JSONLIB_RIGHT_SQUARE_BRACKET)
+	if (container->tokens[container->processed++].type != JSONLIB_LEFT_SQUARE_BRACKET)
 	{
-		container->processed++;
-		JSONLIB_IgnoreWhitespace(container);
-
-		JSONLIB_ParseValue(container, NULL);
+		return NULL;
 	}
 
 	JSONLIB_IgnoreWhitespace(container);
 
-	if (container->tokens[container->processed++].type != JSONLIB_RIGHT_SQUARE_BRACKET) return NULL;
+	// Array of pointers to parsed values
+	JSONptr	arrayObj = JSONLIB_Allocate(sizeof(JSON));
+	arrayObj->name = name;
+	arrayObj->valueCount = 0;
+	arrayObj->values = NULL;
+
+	u32 arraySize = 0;
+	while (container->processed < container->count)
+	{
+		JSONLIB_IgnoreWhitespace(container);
+
+		JSONptr parsedValue = JSONLIB_ParseValue(container, NULL);
+		arraySize++;
+
+		// TODO: @Jon
+		// Might make this a two-step process, figure out the number of values first and then allocate them once
+		// Pretty sure this approach would lead to fragmentation
+		arrayObj->valueCount = arraySize;
+		arrayObj->values = JSONLIB_Allocate(sizeof(JSON*) * arraySize);
+		arrayObj->values[arraySize - 1] = parsedValue;
+
+		JSONLIB_IgnoreWhitespace(container);
+
+		const enum JSONLIB_TOKEN_TYPE type = container->tokens[container->processed].type;
+		if (type == JSONLIB_COMMA)
+		{
+			container->processed++;
+			continue;
+		}
+
+		if (type == JSONLIB_RIGHT_SQUARE_BRACKET)
+		{
+			container->processed++;
+			break;
+		}
+	}
+
+	JSONLIB_IgnoreWhitespace(container);
+
+	if (container->tokens[container->processed++].type != JSONLIB_RIGHT_SQUARE_BRACKET)
+	{
+		return NULL;
+	}
+
+	return arrayObj;
 }
 
-JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container)
+JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container, const char* name)
 {
 	// TODO: @Jon
 	// Handle dellocation on parsing errors here?
@@ -546,12 +587,24 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container)
 	}
 
 	JSONptr parsedObj = JSONLIB_Allocate(sizeof(JSON));
+	parsedObj->name = name;
 	parsedObj->tags = JSONLIB_OBJECT_TAG;
 	parsedObj->values = NULL;
 	parsedObj->valueCount = 0;
 
-	while (container->tokens[container->processed].type != JSONLIB_COMMA && container->tokens[container->processed].type != JSONLIB_RIGHT_BRACE)
+	while (container->processed < container->count)
 	{
+		const enum JSONLIB_TOKEN_TYPE type = container->tokens[container->processed].type;
+		if (type == JSONLIB_RIGHT_BRACE)
+		{
+			break;
+		}
+
+		if (type == JSONLIB_COMMA)
+		{
+			container->processed++;
+		}
+
 		JSONLIB_IgnoreWhitespace(container);
 
 		const char* name = JSONLIB_ParseString(container);
@@ -562,6 +615,7 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container)
 		// Handle dellocation on parsing errors here?
 		if (container->tokens[container->processed++].type != JSONLIB_COLON)
 		{
+			JSONLIB_FreeJSON(parsedObj);
 			return NULL; 
 		}
 
@@ -575,7 +629,7 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container)
 		// Might make this a two-step process, figure out the number of values first and then allocate them once
 		// Pretty sure this approach would lead to fragmentation
 		const u32 valueCount = parsedObj->valueCount + 1;
-		parsedObj->values = JSONLIB_Allocate(sizeof(JSON*) * valueCount);
+		parsedObj->values = JSONLIB_Allocate(sizeof(JSON) * valueCount);
 		parsedObj->values[valueCount - 1] = parsedValue;
 		parsedObj->valueCount = valueCount;
 	}
@@ -586,6 +640,7 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container)
 	// Handle dellocation on parsing errors here?
 	if (container->tokens[container->processed++].type != JSONLIB_RIGHT_BRACE)
 	{
+		JSONLIB_FreeJSON(parsedObj);
 		return NULL;
 	}
 
@@ -595,7 +650,7 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container)
 JSONptr JSONLIB_ParseJSON(const char *jsonString, u32 stringLength)
 {
 	JSONLIB_TOKENS container = JSONLIB_TokeniseString(jsonString, stringLength);
-	JSONptr root = JSONLIB_ParseObject(&container);
+	JSONptr root = JSONLIB_ParseObject(&container, NULL);
 	return root;
 }
 
