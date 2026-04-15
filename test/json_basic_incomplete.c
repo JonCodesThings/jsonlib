@@ -18,15 +18,6 @@ int main()
 	
 	assert(json == NULL);
 
-	const char* jsonStr = JSONLIB_MakeJSON(json, 0);
-
-	assert(jsonStr != NULL);
-	assert(!strcmp(str, jsonStr));
-
-	JSONLIB_ClearJSON((void*)jsonStr);
-
-	JSONLIB_FreeJSON(json);
-
 	assert(allocations == 0);
 
 	return 0;
