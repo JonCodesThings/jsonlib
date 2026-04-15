@@ -23,11 +23,27 @@ int main()
 
 	assert(array->valueCount == 3);
 
+	assert(array->name != NULL);
+
 	assert(!strcmp(array->name, "array"));
+
+	assert(array->values != NULL);
+
+	assert(array->values[0] != NULL);
+
+	assert(array->values[0]->string != NULL);
 
 	assert(!strcmp(array->values[0]->string, "bananas"));
 
+	assert(array->values[1] != NULL);
+
+	assert(array->values[1]->string != NULL);
+
 	assert(!strcmp(array->values[1]->string, "concert"));
+
+	assert(array->values[2] != NULL);
+
+	assert(array->values[2]->string != NULL);
 
 	assert(!strcmp(array->values[2]->string, "hmm"));
 
