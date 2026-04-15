@@ -554,6 +554,11 @@ JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* container, const char* name)
 		JSONLIB_IgnoreWhitespace(container);
 
 		const enum JSONLIB_TOKEN_TYPE type = container->tokens[container->processed].type;
+		if (type == JSONLIB_RIGHT_SQUARE_BRACKET)
+		{
+			break;
+		}
+
 		if (type == JSONLIB_COMMA)
 		{
 			container->processed++;
@@ -649,7 +654,23 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container, const char* name)
 JSONptr JSONLIB_ParseJSON(const char *jsonString, u32 stringLength)
 {
 	JSONLIB_TOKENS container = JSONLIB_TokeniseString(jsonString, stringLength);
-	JSONptr root = JSONLIB_ParseObject(&container, NULL);
+	const enum JSONLIB_TOKEN_TYPE type = container.tokens[container.processed].type;
+	JSONptr root = NULL;
+
+	switch (type)
+	{
+		default: break;
+		case JSONLIB_LEFT_BRACE:
+		{
+			root = JSONLIB_ParseObject(&container, NULL);
+			break;
+		}
+		case JSONLIB_LEFT_SQUARE_BRACKET:
+		{
+			root = JSONLIB_ParseArray(&container, NULL);
+			break;
+		}
+	}
 	return root;
 }
 
