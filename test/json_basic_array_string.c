@@ -8,7 +8,7 @@
 
 int main()
 {
-	const char* str = "{\"json\":[\"bananas\",\"concert\",\"hmm\"]}";
+	const char* str = "[\"bananas\",\"concert\",\"hmm\"]";
 
 	InitTESTAllocatorContext();
 	JSONLIB_SetAllocator(TESTAllocate, TESTDeallocate);
@@ -17,9 +17,9 @@ int main()
 
 	assert(json != NULL);
 
-	assert(json->valueCount == 3);
+	assert(json->name == NULL);
 
-	assert(!strcmp(json->name, "json"));
+	assert(json->valueCount == 3);
 
 	assert(json->values != NULL);
 
@@ -42,6 +42,8 @@ int main()
 	assert(!strcmp(json->values[2]->string, "hmm"));
 
 	const char* jsonStr = JSONLIB_MakeJSON(json, 0);
+
+	assert(jsonStr != NULL);
 
 	assert(!strcmp(str, jsonStr));
 
