@@ -1,12 +1,6 @@
 #ifndef JSONLIB_H
 #define JSONLIB_H
 
-#ifndef JSONLIB_NO_STDLIB
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-#endif
-
 #if defined(JSONLIB_HEADER) || defined(JSONLIB_IMPLEMENTATION)
 // TODO: @Jon
 // Add more platforms/compilers to this as needed
@@ -49,9 +43,30 @@ typedef double f64;
 #endif
 #endif
 
+#ifndef JSONLIB_NO_STDLIB
+#include <stddef.h>
+typedef size_t JSONLIB_size_t;
+#else
+#if __x86_64__
+typedef u64 JSONLIB_size_t;
+#else
+typedef u32 JSONLIB_size_t;
+#endif
+#endif
+
+#if __x86_64__
+typedef u64 JSONLIB_uint_t;
+typedef i64 JSONLIB_int_t;
+typedef f64 JSONLIB_float_t;
+#else
+typedef u32 JSONLIB_uint_t;
+typedef i32 JSONLIB_int_t;
+typedef f32 JSONLIB_float_t;
+#endif
+
 // NOTE: @Jon
 // Function pointer typedefs for allocation functions
-typedef void* (*JSONLIB_ALLOC)(size_t numBytes);
+typedef void* (*JSONLIB_ALLOC)(JSONLIB_size_t numBytes);
 typedef void(*JSONLIB_DEALLOC)(void* bytes);
 
 // NOTE: @Jon
@@ -73,7 +88,7 @@ typedef struct JSON
 	// Parent links to the parent node of this
 	JSONptr parent; //= NULL;
 
-	u32 valueCount; //= 0;
+	JSONLIB_size_t valueCount; //= 0;
 
 	//The name for the node
 	const char* name; //= "";
@@ -84,8 +99,8 @@ typedef struct JSON
 	// A representation of what type of number/string this node contains as a value (if it isn't an object or an array)
 	union
 	{
-		i32 integer;
-		f32 decimal;
+		JSONLIB_int_t integer;
+		JSONLIB_float_t decimal;
 		const char *string;
 
 		// Values stores a flat array of values, with valueCount keeping track of how many there are
@@ -102,7 +117,7 @@ void JSONLIB_SetAllocator(JSONLIB_ALLOC alloc, JSONLIB_DEALLOC dealloc);
 // NOTE: @Jon
 // Parses a JSON string
 // The string need not be null-terminated
-JSONptr JSONLIB_ParseJSON(const char *jsonString, u32 stringLength);
+JSONptr JSONLIB_ParseJSON(const char *jsonString, JSONLIB_size_t stringLength);
 
 // NOTE: @Jon
 // Constructs a JSON string from a given tree
@@ -117,7 +132,7 @@ JSONptr  JSONLIB_AllocateJSON(const char* name, JSONptr parent);
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSONptr  JSONLIB_AllocateIntegerJSON(const char* name, JSONptr parent, const i32 integer);
+JSONptr  JSONLIB_AllocateIntegerJSON(const char* name, JSONptr parent, const JSONLIB_int_t integer);
 
 // NOTE: @Jon
 // Allocates a JSON node
@@ -128,12 +143,12 @@ JSONptr  JSONLIB_AllocateStringJSON(const char* name, JSONptr parent, const char
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSONptr  JSONLIB_AllocateBooleanJSON(const char* name, JSONptr parent, const i32 isTrue);
+JSONptr  JSONLIB_AllocateBooleanJSON(const char* name, JSONptr parent, const u8 isTrue);
 
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSONptr  JSONLIB_AllocateDecimalJSON(const char* name, JSONptr parent, f32 decimal);
+JSONptr  JSONLIB_AllocateDecimalJSON(const char* name, JSONptr parent, JSONLIB_float_t decimal);
 
 // NOTE: @Jon
 // Allocates a JSON node
@@ -146,7 +161,7 @@ void JSONLIB_AddValueJSON(JSONptr json, JSONptr val);
 
 // NOTE: @Jon
 // Gets a value by name from a given node
-JSONptr JSONLIB_GetValueJSON(const char *name, u32 nameLength, JSONptr json);
+JSONptr JSONLIB_GetValueJSON(const char *name, JSONLIB_size_t nameLength, JSONptr json);
 
 // NOTE: @Jon
 // Frees memory associated with a given node and all of its children
@@ -184,8 +199,8 @@ const u8 JSONLIB_NULL_TAG = 1 << 7;
 typedef struct JSONLIB_STRING_STRUCT
 {
 	char *raw;
-	u32 length;
-	u32 capacity;
+	JSONLIB_size_t length;
+	JSONLIB_size_t capacity;
 } JSONLIB_STRING_STRUCT;
 
 // NOTE: @Jon
@@ -252,17 +267,22 @@ static enum JSONLIB_TOKEN_TYPE JSONLIB_TOKEN_NULL_PATTERN[] 	= { JSONLIB_n, JSON
 typedef struct JSONLIB_TOKEN
 {
 	enum JSONLIB_TOKEN_TYPE type; // = JSONLIB_TOKEN_TYPE::JSONLIB_NULL;
-	u32 inputPos; // = 0;
+	JSONLIB_size_t inputPos; // = 0;
 } JSONLIB_TOKEN;
 
 typedef struct JSONLIB_TOKENS
 {
 	const char* inputStr;
 	JSONLIB_TOKEN *tokens;
-	u32 count;
-	u32 capacity;
-	u32 processed;
+	JSONLIB_size_t count;
+	JSONLIB_size_t capacity;
+	JSONLIB_size_t processed;
 } JSONLIB_TOKENS;
+
+#ifndef JSONLIB_NO_STDLIB
+#include <stdlib.h>
+#include <stdio.h>
+#endif
 
 static JSONLIB_ALLOC 	JSONLIB_Allocate = malloc;
 static JSONLIB_DEALLOC 	JSONLIB_Deallocate = free;
@@ -273,13 +293,19 @@ void JSONLIB_SetAllocator(JSONLIB_ALLOC alloc, JSONLIB_DEALLOC dealloc)
 	JSONLIB_Deallocate = dealloc;
 }
 
-void JSONLIB_PushToken(JSONLIB_TOKENS* t, enum JSONLIB_TOKEN_TYPE type, const u32 inputPos)
+void JSONLIB_PushToken(JSONLIB_TOKENS* t, enum JSONLIB_TOKEN_TYPE type, const JSONLIB_size_t inputPos)
 {
 	if (t->count + 1 > t->capacity)
 	{
 		JSONLIB_TOKEN* newTokens = JSONLIB_Allocate(sizeof(JSONLIB_TOKEN) * t->capacity * 2);
 		t->capacity *= 2;
-		memcpy(newTokens, t->tokens, sizeof(JSONLIB_TOKEN) * t->count);
+
+		for (JSONLIB_size_t copyIter = 0; copyIter < t->count; copyIter++)
+		{
+			newTokens[copyIter].type = t->tokens[copyIter].type;
+			newTokens[copyIter].inputPos = t->tokens[copyIter].inputPos;
+		}
+
 		JSONLIB_Deallocate(t->tokens);
 		t->tokens = newTokens;
 	}
@@ -289,19 +315,20 @@ void JSONLIB_PushToken(JSONLIB_TOKENS* t, enum JSONLIB_TOKEN_TYPE type, const u3
 	token->inputPos = inputPos;
 }
 
-JSONLIB_TOKEN* JSONLIB_CheckTokenPattern(JSONLIB_TOKENS* container, enum JSONLIB_TOKEN_TYPE patternType, enum JSONLIB_TOKEN_TYPE* pattern, const u32 patternLength)
+JSONLIB_TOKEN* JSONLIB_CheckTokenPattern(JSONLIB_TOKENS* container, enum JSONLIB_TOKEN_TYPE patternType, enum JSONLIB_TOKEN_TYPE* pattern, const JSONLIB_size_t patternLength)
 {
 	if (pattern == NULL)
 	{
 		return NULL;
 	}
+
 	if (container->count < patternLength)
 	{
 		return NULL;
 	}
 
-	const u32 startToken = container->count - patternLength;
-	for (u32 iter = 0; iter < patternLength; iter++)
+	const JSONLIB_size_t startToken = container->count - patternLength;
+	for (JSONLIB_size_t iter = 0; iter < patternLength; iter++)
 	{
 		const JSONLIB_TOKEN* token = &container->tokens[startToken + iter];
 		if (token->type != pattern[iter])
@@ -346,7 +373,7 @@ void JSONLIB_TokenPatternMatch(JSONLIB_TOKENS* container)
 	}
 }
 
-JSONLIB_TOKENS JSONLIB_TokeniseString(const char* str, const u32 strLength)
+JSONLIB_TOKENS JSONLIB_TokeniseString(const char* str, const JSONLIB_size_t strLength)
 {
 	JSONLIB_TOKENS container;
 	container.count = 0;
@@ -355,7 +382,7 @@ JSONLIB_TOKENS JSONLIB_TokeniseString(const char* str, const u32 strLength)
 	container.tokens = JSONLIB_Allocate(sizeof(JSONLIB_TOKEN)* container.capacity);
 	container.inputStr = str;
 
-	for (u32 iter = 0; iter < strLength; iter++)
+	for (JSONLIB_size_t iter = 0; iter < strLength; iter++)
 	{
 		switch(str[iter])
 		{
@@ -450,9 +477,12 @@ const char* JSONLIB_ParseString(JSONLIB_TOKENS* container)
 
 	// Using the input positions copy the string data over to the JSONLIB heap
 	// This string is NULL-terminated hence the additional char allocated
-	const u32 parsedStrLength = strEnd->inputPos - strStart->inputPos - 1;
+	const JSONLIB_size_t parsedStrLength = strEnd->inputPos - strStart->inputPos - 1;
 	char* parsedStr = JSONLIB_Allocate(sizeof(char) * parsedStrLength + 1); 
-	memcpy(parsedStr, &container->inputStr[strStart->inputPos + 1], sizeof(char) * parsedStrLength);
+	for (JSONLIB_size_t copyIter = 0; copyIter < parsedStrLength + 1; copyIter++)
+	{
+		parsedStr[copyIter] = container->inputStr[strStart->inputPos + copyIter + 1];
+	}
 	parsedStr[parsedStrLength] = '\0';
 
 	return parsedStr;
@@ -461,14 +491,14 @@ const char* JSONLIB_ParseString(JSONLIB_TOKENS* container)
 enum JSONLIB_PARSEDNUMBERTYPE
 {
 	JSONLIB_PARSEDNUMBERTYPE_INTEGER,
-	JSONLIB_PARSEDNUMBERTYPE_FLOAT,
+	JSONLIB_PARSEDNUMBERTYPE_DECIMAL,
 	JSONLIB_PARSEDNUMBERTYPE_ERROR
 };
 
 enum JSONLIB_PARSEDNUMBERTYPE JSONLIB_ParseNumber(JSONLIB_TOKENS* container)
 {
 	enum JSONLIB_PARSEDNUMBERTYPE typeToParse = JSONLIB_PARSEDNUMBERTYPE_INTEGER;
-	u32 lookaheadIter = container->processed;	
+	JSONLIB_size_t lookaheadIter = container->processed;	
 	while (lookaheadIter < container->count)
 	{
 		const enum JSONLIB_TOKEN_TYPE type = container->tokens[lookaheadIter].type;
@@ -476,12 +506,12 @@ enum JSONLIB_PARSEDNUMBERTYPE JSONLIB_ParseNumber(JSONLIB_TOKENS* container)
 		if (type == JSONLIB_DOT)
 		{
 			// If we've already picked up a decimal point this is bad data - BAIL
-			if (typeToParse == JSONLIB_PARSEDNUMBERTYPE_FLOAT)
+			if (typeToParse == JSONLIB_PARSEDNUMBERTYPE_DECIMAL)
 			{
 				typeToParse = JSONLIB_PARSEDNUMBERTYPE_ERROR;
 				break;
 			}
-			typeToParse = JSONLIB_PARSEDNUMBERTYPE_FLOAT;
+			typeToParse = JSONLIB_PARSEDNUMBERTYPE_DECIMAL;
 		}
 
 		if (type == JSONLIB_COMMA || type == JSONLIB_LEFT_BRACE || type == JSONLIB_RIGHT_BRACE)
@@ -494,10 +524,10 @@ enum JSONLIB_PARSEDNUMBERTYPE JSONLIB_ParseNumber(JSONLIB_TOKENS* container)
 	return typeToParse;
 }
 
-i32 JSONLIB_ParseInteger(JSONLIB_TOKENS* container)
+JSONLIB_int_t JSONLIB_ParseInteger(JSONLIB_TOKENS* container)
 {
-	i32 num = 0;
-	u32 processedAtStart = container->processed;
+	JSONLIB_int_t num = 0;
+	JSONLIB_size_t processedAtStart = container->processed;
 	while (container->processed < container->count)
 	{
 		const enum JSONLIB_TOKEN_TYPE type = container->tokens[container->processed].type;
@@ -578,10 +608,10 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* container, const char* name)
 				case JSONLIB_PARSEDNUMBERTYPE_ERROR: return NULL;
 				case JSONLIB_PARSEDNUMBERTYPE_INTEGER:
 				{
-					i32 integer = JSONLIB_ParseInteger(container);
+					JSONLIB_int_t integer = JSONLIB_ParseInteger(container);
 					return JSONLIB_AllocateIntegerJSON(name, NULL, integer);
 				}
-				case JSONLIB_PARSEDNUMBERTYPE_FLOAT:
+				case JSONLIB_PARSEDNUMBERTYPE_DECIMAL:
 				{
 					//f32 fNum = JSONLIB_ParseFloat(container);
 					// return JSONLIB_AllocateFloatJSON(name, NULL, fNum);
@@ -592,12 +622,41 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* container, const char* name)
 		}
 		default: return NULL;
 	}
+}
 
-	JSONLIB_IgnoreWhitespace(container);
+JSONLIB_size_t JSONLIB_GetArrayLength(JSONLIB_TOKENS* container)
+{
+	JSONLIB_size_t arraySize = 0;
+	JSONLIB_size_t tokenIter = container->processed;
+
+	if (container->tokens[tokenIter++].type != JSONLIB_LEFT_SQUARE_BRACKET)
+	{
+		return arraySize;
+	}
+
+	while (tokenIter < container->count)
+	{
+		if (container->tokens[tokenIter].type == JSONLIB_COMMA)
+		{
+			arraySize++;
+		}
+
+		tokenIter++;
+
+		if (container->tokens[tokenIter].type == JSONLIB_RIGHT_SQUARE_BRACKET)
+		{
+			arraySize++;
+			break;
+		}
+	}
+
+	return arraySize;
 }
 
 JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* container, const char* name)
 {
+	JSONLIB_size_t arraySize = JSONLIB_GetArrayLength(container);
+
 	if (container->tokens[container->processed++].type != JSONLIB_LEFT_SQUARE_BRACKET)
 	{
 		return NULL;
@@ -608,25 +667,14 @@ JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* container, const char* name)
 	// Array of pointers to parsed values
 	JSONptr	arrayObj = JSONLIB_Allocate(sizeof(JSON));
 	arrayObj->name = name;
-	arrayObj->valueCount = 0;
-	arrayObj->values = NULL;
+	arrayObj->valueCount = arraySize;
+	arrayObj->values = JSONLIB_Allocate(sizeof(JSON*) * arraySize);
 
-	u32 arraySize = 0;
+	JSONLIB_size_t arrayIter = 0;
 	while (container->processed < container->count)
 	{
-		JSONLIB_IgnoreWhitespace(container);
-
 		JSONptr parsedValue = JSONLIB_ParseValue(container, NULL);
-		arraySize++;
-
-		// TODO: @Jon
-		// Might make this a two-step process, figure out the number of values first and then allocate them once
-		// Pretty sure this approach would lead to fragmentation
-		arrayObj->valueCount = arraySize;
-		arrayObj->values = JSONLIB_Allocate(sizeof(JSON*) * arraySize);
-		arrayObj->values[arraySize - 1] = parsedValue;
-
-		JSONLIB_IgnoreWhitespace(container);
+		arrayObj->values[arrayIter++] = parsedValue;
 
 		const enum JSONLIB_TOKEN_TYPE type = container->tokens[container->processed].type;
 		if (type == JSONLIB_RIGHT_SQUARE_BRACKET)
@@ -639,15 +687,9 @@ JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* container, const char* name)
 			container->processed++;
 			continue;
 		}
-
-		if (type == JSONLIB_RIGHT_SQUARE_BRACKET)
-		{
-			container->processed++;
-			break;
-		}
+		
+		return NULL;
 	}
-
-	JSONLIB_IgnoreWhitespace(container);
 
 	if (container->tokens[container->processed++].type != JSONLIB_RIGHT_SQUARE_BRACKET)
 	{
@@ -685,11 +727,7 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container, const char* name)
 			container->processed++;
 		}
 
-		JSONLIB_IgnoreWhitespace(container);
-
 		const char* name = JSONLIB_ParseString(container);
-
-		JSONLIB_IgnoreWhitespace(container);
 
 		// TODO: @Jon
 		// Handle dellocation on parsing errors here?
@@ -699,15 +737,13 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container, const char* name)
 			return NULL; 
 		}
 
-		JSONLIB_IgnoreWhitespace(container);
-
 		JSONptr parsedValue = JSONLIB_ParseValue(container, name);
 		parsedValue->parent = parsedObj;
 
 		// TODO: @Jon
 		// Might make this a two-step process, figure out the number of values first and then allocate them once
 		// Pretty sure this approach would lead to fragmentation
-		const u32 valueCount = parsedObj->valueCount + 1;
+		const JSONLIB_size_t valueCount = parsedObj->valueCount + 1;
 		parsedObj->values = JSONLIB_Allocate(sizeof(JSON) * valueCount);
 		parsedObj->values[valueCount - 1] = parsedValue;
 		parsedObj->valueCount = valueCount;
@@ -724,7 +760,7 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container, const char* name)
 	return parsedObj;
 }
 
-JSONptr JSONLIB_ParseJSON(const char *jsonString, u32 stringLength)
+JSONptr JSONLIB_ParseJSON(const char *jsonString, const JSONLIB_size_t stringLength)
 {
 	JSONLIB_TOKENS container = JSONLIB_TokeniseString(jsonString, stringLength);
 	const enum JSONLIB_TOKEN_TYPE type = container.tokens[container.processed].type;
@@ -754,7 +790,7 @@ const char *JSONLIB_MakeJSON(const JSONptr const json, const u8 flags)
 
 void JSONLIB_FreeJSON(JSONptr json)
 {
-	for (u32 valIter = 0; valIter < json->valueCount; valIter++)
+	for (JSONLIB_size_t valIter = 0; valIter < json->valueCount; valIter++)
 	{
 		JSONLIB_FreeJSON(json->values[valIter]);
 	}
@@ -786,7 +822,7 @@ JSONptr JSONLIB_AllocateJSON(const char* name, JSONptr parent)
 	return allocJSON;
 }
 
-JSONptr JSONLIB_AllocateIntegerJSON(const char* name, JSONptr parent, const i32 integer)
+JSONptr JSONLIB_AllocateIntegerJSON(const char* name, JSONptr parent, const JSONLIB_int_t integer)
 {
 	JSONptr allocJSON = JSONLIB_AllocateJSON(name, parent);
 	allocJSON->integer = integer;
@@ -802,7 +838,7 @@ JSONptr JSONLIB_AllocateStringJSON(const char* name, JSONptr parent, const char*
 	return allocJSON;
 }
 
-JSONptr JSONLIB_AllocateBooleanJSON(const char* name, JSONptr parent, const i32 isTrue)
+JSONptr JSONLIB_AllocateBooleanJSON(const char* name, JSONptr parent, const u8 isTrue)
 {
 	JSONptr allocJSON = JSONLIB_AllocateJSON(name, parent);
 	allocJSON->integer = 0;
@@ -818,7 +854,7 @@ JSONptr JSONLIB_AllocateNullJSON(const char* name, JSONptr parent)
 	return allocJSON;
 }
 
-JSONptr JSONLIB_AllocateDecimalJSON(const char* name, JSONptr parent, const f32 decimal)
+JSONptr JSONLIB_AllocateDecimalJSON(const char* name, JSONptr parent, const JSONLIB_float_t decimal)
 {
 	JSONptr allocJSON = JSONLIB_AllocateJSON(name, parent);
 	allocJSON->decimal = decimal;
