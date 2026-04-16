@@ -49,6 +49,8 @@ int main()
 
 	const char* jsonStr = JSONLIB_MakeJSON(json, 0);
 
+	assert(jsonStr != NULL);
+
 	assert(!strcmp(str, jsonStr));
 
 	JSONLIB_ClearJSON((void*)jsonStr);

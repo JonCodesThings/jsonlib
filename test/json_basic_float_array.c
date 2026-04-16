@@ -27,6 +27,8 @@ int main()
 
 	const char* jsonStr = JSONLIB_MakeJSON(json, 0);
 
+	assert(jsonStr != NULL);
+
 	if (strcmp(str, jsonStr))
 	{
 		JSONLIB_FreeJSON(json);
