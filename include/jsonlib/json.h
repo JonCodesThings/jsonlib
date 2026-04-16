@@ -424,20 +424,6 @@ void JSONLIB_CleanupContainer(JSONLIB_TOKENS* container)
 JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container, const char* name);
 JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* container, const char* name);
 
-void JSONLIB_IgnoreWhitespace(JSONLIB_TOKENS* container)
-{
-	while (container->processed < container->count)
-	{
-		const enum JSONLIB_TOKEN_TYPE type = container->tokens[container->processed].type;
-		if (type == JSONLIB_SPACE || type == JSONLIB_RETURN 
-			|| type == JSONLIB_NEWLINE || type == JSONLIB_TAB)
-		{
-			container->processed++;
-		}
-		break;
-	}
-}
-
 const char* JSONLIB_ParseString(JSONLIB_TOKENS* container)
 {
 	// Grab our starting token and validate we're parsing a string value
@@ -472,6 +458,78 @@ const char* JSONLIB_ParseString(JSONLIB_TOKENS* container)
 	return parsedStr;
 }
 
+enum JSONLIB_PARSEDNUMBERTYPE
+{
+	JSONLIB_PARSEDNUMBERTYPE_INTEGER,
+	JSONLIB_PARSEDNUMBERTYPE_FLOAT,
+	JSONLIB_PARSEDNUMBERTYPE_ERROR
+};
+
+enum JSONLIB_PARSEDNUMBERTYPE JSONLIB_ParseNumber(JSONLIB_TOKENS* container)
+{
+	enum JSONLIB_PARSEDNUMBERTYPE typeToParse = JSONLIB_PARSEDNUMBERTYPE_INTEGER;
+	u32 lookaheadIter = container->processed;	
+	while (lookaheadIter < container->count)
+	{
+		const enum JSONLIB_TOKEN_TYPE type = container->tokens[lookaheadIter].type;
+
+		if (type == JSONLIB_DOT)
+		{
+			// If we've already picked up a decimal point this is bad data - BAIL
+			if (typeToParse == JSONLIB_PARSEDNUMBERTYPE_FLOAT)
+			{
+				typeToParse = JSONLIB_PARSEDNUMBERTYPE_ERROR;
+				break;
+			}
+			typeToParse = JSONLIB_PARSEDNUMBERTYPE_FLOAT;
+		}
+
+		if (type == JSONLIB_COMMA || type == JSONLIB_LEFT_BRACE || type == JSONLIB_RIGHT_BRACE)
+		{
+			break;
+		}
+
+		lookaheadIter++;
+	}
+	return typeToParse;
+}
+
+i32 JSONLIB_ParseInteger(JSONLIB_TOKENS* container)
+{
+	i32 num = 0;
+	u32 processedAtStart = container->processed;
+	while (container->processed < container->count)
+	{
+		const enum JSONLIB_TOKEN_TYPE type = container->tokens[container->processed].type;
+		if (type == JSONLIB_COMMA || type == JSONLIB_RIGHT_BRACE || type == JSONLIB_RIGHT_SQUARE_BRACKET)
+		{
+			break;
+		}
+
+		num *= 10 * (container->processed - processedAtStart);
+
+		switch (type)
+		{
+			case JSONLIB_0: break;
+			case JSONLIB_1: num += 1; break;
+			case JSONLIB_2: num += 2; break;
+			case JSONLIB_3: num += 3; break;
+			case JSONLIB_4: num += 4; break;
+			case JSONLIB_5: num += 5; break;
+			case JSONLIB_6: num += 6; break;
+			case JSONLIB_7: num += 7; break;
+			case JSONLIB_8: num += 8; break;
+			case JSONLIB_9: num += 9; break;
+		}
+
+		container->processed++;
+	}
+
+	printf("%s - Parsed %d\n", __FUNCTION__, num);
+	return num;
+}
+
+
 JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* container, const char* name)
 {
 	JSONLIB_IgnoreWhitespace(container);
@@ -501,6 +559,36 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* container, const char* name)
 		{
 			container->processed++;
 			return JSONLIB_AllocateNullJSON(name, NULL);
+		}
+		case JSONLIB_0:
+		case JSONLIB_1:
+		case JSONLIB_2:
+		case JSONLIB_3:
+		case JSONLIB_4:
+		case JSONLIB_5:
+		case JSONLIB_6:
+		case JSONLIB_7:
+		case JSONLIB_8:
+		case JSONLIB_9:
+		{
+			enum JSONLIB_PARSEDNUMBERTYPE numType = JSONLIB_ParseNumber(container);
+
+			switch (numType)
+			{
+				case JSONLIB_PARSEDNUMBERTYPE_ERROR: return NULL;
+				case JSONLIB_PARSEDNUMBERTYPE_INTEGER:
+				{
+					i32 integer = JSONLIB_ParseInteger(container);
+					return JSONLIB_AllocateIntegerJSON(name, NULL, integer);
+				}
+				case JSONLIB_PARSEDNUMBERTYPE_FLOAT:
+				{
+					//f32 fNum = JSONLIB_ParseFloat(container);
+					// return JSONLIB_AllocateFloatJSON(name, NULL, fNum);
+					break;
+				}
+			}
+
 		}
 		default: return NULL;
 	}
@@ -625,8 +713,6 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container, const char* name)
 		parsedObj->valueCount = valueCount;
 	}
 	
-	JSONLIB_IgnoreWhitespace(container);
-
 	// TODO: @Jon
 	// Handle dellocation on parsing errors here?
 	if (container->tokens[container->processed++].type != JSONLIB_RIGHT_BRACE)
