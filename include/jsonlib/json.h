@@ -240,14 +240,6 @@ enum JSONLIB_TOKEN_TYPE
 	JSONLIB_8 = '8',
 	JSONLIB_9 = '9',
 
-	// Whitespace tokens
-	JSONLIB_SPACE 	= ' ',
-	JSONLIB_RETURN 	= '\r',
-	JSONLIB_NEWLINE = '\n',
-	JSONLIB_TAB 	= '\t',
-
-
-	JSONLIB_EOF,
 	JSONLIB_ERROR
 };
 
@@ -404,11 +396,6 @@ JSONLIB_TOKENS JSONLIB_TokeniseString(const char* str, const u32 strLength)
 			case JSONLIB_7:
 			case JSONLIB_8:
 			case JSONLIB_9:
-
-			case JSONLIB_SPACE:
-			case JSONLIB_RETURN:
-			case JSONLIB_NEWLINE:
-			case JSONLIB_TAB:
 				JSONLIB_PushToken(&container, str[iter], iter);
 				break;
 		}
