@@ -527,7 +527,13 @@ enum JSONLIB_PARSEDNUMBERTYPE JSONLIB_ParseNumber(JSONLIB_TOKENS* container)
 JSONLIB_int_t JSONLIB_ParseInteger(JSONLIB_TOKENS* container)
 {
 	JSONLIB_int_t num = 0;
-	JSONLIB_size_t processedAtStart = container->processed;
+
+	const enum JSONLIB_TOKEN_TYPE startTokenType = container->tokens[container->processed].type;
+	if (startTokenType == JSONLIB_MINUS)
+	{
+		container->processed++;
+	}
+
 	while (container->processed < container->count)
 	{
 		const enum JSONLIB_TOKEN_TYPE type = container->tokens[container->processed].type;
@@ -536,7 +542,7 @@ JSONLIB_int_t JSONLIB_ParseInteger(JSONLIB_TOKENS* container)
 			break;
 		}
 
-		num *= 10 * (container->processed - processedAtStart);
+		num *= 10;
 
 		switch (type)
 		{
@@ -551,11 +557,15 @@ JSONLIB_int_t JSONLIB_ParseInteger(JSONLIB_TOKENS* container)
 			case JSONLIB_8: num += 8; break;
 			case JSONLIB_9: num += 9; break;
 		}
-
+		
 		container->processed++;
 	}
 
-	printf("%s - Parsed %d\n", __FUNCTION__, num);
+	if (startTokenType == JSONLIB_MINUS)
+	{
+		num *= -1;
+	}
+
 	return num;
 }
 
@@ -600,6 +610,7 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* container, const char* name)
 		case JSONLIB_7:
 		case JSONLIB_8:
 		case JSONLIB_9:
+		case JSONLIB_MINUS:
 		{
 			enum JSONLIB_PARSEDNUMBERTYPE numType = JSONLIB_ParseNumber(container);
 
@@ -661,8 +672,6 @@ JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* container, const char* name)
 	{
 		return NULL;
 	}
-
-	JSONLIB_IgnoreWhitespace(container);
 
 	// Array of pointers to parsed values
 	JSONptr	arrayObj = JSONLIB_Allocate(sizeof(JSON));
