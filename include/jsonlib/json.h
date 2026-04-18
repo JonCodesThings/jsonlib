@@ -542,6 +542,11 @@ JSONLIB_int_t JSONLIB_ParseInteger(JSONLIB_TOKENS* container)
 			break;
 		}
 
+		if (type == JSONLIB_0 && num == 0)
+		{
+			continue;
+		}
+
 		num *= 10;
 
 		switch (type)
@@ -557,7 +562,7 @@ JSONLIB_int_t JSONLIB_ParseInteger(JSONLIB_TOKENS* container)
 			case JSONLIB_8: num += 8; break;
 			case JSONLIB_9: num += 9; break;
 		}
-		
+
 		container->processed++;
 	}
 
