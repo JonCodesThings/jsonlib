@@ -122,7 +122,7 @@ JSONptr JSONLIB_ParseJSON(const char *jsonString, JSONLIB_size_t stringLength);
 // NOTE: @Jon
 // Constructs a JSON string from a given tree
 // The returnded string will be null-terminated
-const char *JSONLIB_MakeJSON(const JSONptr const json, const u8 flags);
+const char *JSONLIB_MakeJSON(const JSONptr json, const u8 flags);
 
 // NOTE: @Jon
 // Allocates a JSON node
@@ -634,7 +634,7 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* container, const char* name)
 					break;
 				}
 			}
-
+			return NULL;
 		}
 		default: return NULL;
 	}
@@ -797,7 +797,7 @@ JSONptr JSONLIB_ParseJSON(const char *jsonString, const JSONLIB_size_t stringLen
 	return root;
 }
 
-const char *JSONLIB_MakeJSON(const JSONptr const json, const u8 flags)
+const char *JSONLIB_MakeJSON(const JSONptr json, const u8 flags)
 {
 	return NULL;
 }
