@@ -575,11 +575,78 @@ JSONLIB_int_t JSONLIB_ParseInteger(JSONLIB_TOKENS* container)
 	return num;
 }
 
+JSONLIB_float_t JSONLIB_ParseDecimal(JSONLIB_TOKENS* container)
+{
+	JSONLIB_float_t num = 0;
+
+	const enum JSONLIB_TOKEN_TYPE startTokenType = container->tokens[container->processed].type;
+	if (startTokenType == JSONLIB_MINUS)
+	{
+		container->processed++;
+	}
+
+	// Store the exponent and mantissa separately
+	JSONLIB_int_t exponent = 0;
+	JSONLIB_int_t mantissa = 0;
+
+	// Multiplier used once we've extracted all of the data
+	JSONLIB_float_t mantissaMultiplier = 1;
+
+	JSONLIB_int_t* part = &exponent;
+	while (container->processed < container->count)
+	{
+		const enum JSONLIB_TOKEN_TYPE type = container->tokens[container->processed].type;
+		if (type == JSONLIB_COMMA || type == JSONLIB_RIGHT_BRACE || type == JSONLIB_RIGHT_SQUARE_BRACKET)
+		{
+			break;
+		}
+
+		if (type == JSONLIB_DOT)
+		{
+			container->processed++;
+			part = &mantissa;
+			continue;
+		}
+
+		*part *= 10;
+
+		if (part == &mantissa)
+		{
+			mantissaMultiplier /= 10;
+		}
+
+		switch (type)
+		{
+			default: break;
+			case JSONLIB_0: break;
+			case JSONLIB_1: *part += 1; break;
+			case JSONLIB_2: *part += 2; break;
+			case JSONLIB_3: *part += 3; break;
+			case JSONLIB_4: *part += 4; break;
+			case JSONLIB_5: *part += 5; break;
+			case JSONLIB_6: *part += 6; break;
+			case JSONLIB_7: *part += 7; break;
+			case JSONLIB_8: *part += 8; break;
+			case JSONLIB_9: *part += 9; break;
+		}
+
+		container->processed++;
+	}
+
+
+	num = (f32)exponent;
+	num += (f32)(mantissa * mantissaMultiplier);
+
+	if (startTokenType == JSONLIB_MINUS)
+	{
+		num *= -1.f;
+	}
+
+	return num;
+}
 
 JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* container, const char* name)
 {
-	JSONLIB_IgnoreWhitespace(container);
-
 	const enum JSONLIB_TOKEN_TYPE type = container->tokens[container->processed].type;
 
 	switch (type)
@@ -630,9 +697,8 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* container, const char* name)
 				}
 				case JSONLIB_PARSEDNUMBERTYPE_DECIMAL:
 				{
-					//f32 fNum = JSONLIB_ParseFloat(container);
-					// return JSONLIB_AllocateFloatJSON(name, NULL, fNum);
-					break;
+					f32 fNum = JSONLIB_ParseDecimal(container);
+					return JSONLIB_AllocateDecimalJSON(name, NULL, fNum);
 				}
 			}
 			return NULL;
