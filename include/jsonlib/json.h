@@ -340,6 +340,7 @@ JSONLIB_TOKEN* JSONLIB_CheckTokenPattern(JSONLIB_TOKENS* container, enum JSONLIB
 	// Set the token count to the start token
 	container->count -= patternLength;
 	container->tokens[startToken].type = patternType;
+	container->count++;
 	return &container->tokens[startToken];
 }
 
