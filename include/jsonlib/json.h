@@ -108,7 +108,14 @@ typedef struct JSON
 	};
 } JSON;
 
-
+extern const u8 JSONLIB_STRING_TAG;
+extern const u8 JSONLIB_INTEGER_TAG;
+extern const u8 JSONLIB_DECIMAL_TAG;
+extern const u8 JSONLIB_ARRAY_TAG;
+extern const u8 JSONLIB_OBJECT_TAG;
+extern const u8 JSONLIB_TRUE_TAG;
+extern const u8 JSONLIB_FALSE_TAG;
+extern const u8 JSONLIB_NULL_TAG;
 
 // NOTE: @Jon
 // Sets the internal allocation functions that the library will use to allocate/free memory
@@ -127,7 +134,7 @@ const char *JSONLIB_MakeJSON(const JSONptr json, const u8 flags);
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
-JSONptr  JSONLIB_AllocateJSON(const char* name, JSONptr parent);
+JSONptr  JSONLIB_AllocateJSON(const char* name, JSONptr parent, const u8 tags);
 
 // NOTE: @Jon
 // Allocates a JSON node
@@ -139,21 +146,10 @@ JSONptr  JSONLIB_AllocateIntegerJSON(const char* name, JSONptr parent, const JSO
 // Uses the allocation functions specified with JSONLIB_SetAllocator
 JSONptr  JSONLIB_AllocateStringJSON(const char* name, JSONptr parent, const char* string);
 
-
-// NOTE: @Jon
-// Allocates a JSON node
-// Uses the allocation functions specified with JSONLIB_SetAllocator
-JSONptr  JSONLIB_AllocateBooleanJSON(const char* name, JSONptr parent, const u8 isTrue);
-
 // NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
 JSONptr  JSONLIB_AllocateDecimalJSON(const char* name, JSONptr parent, JSONLIB_float_t decimal);
-
-// NOTE: @Jon
-// Allocates a JSON node
-// Uses the allocation functions specified with JSONLIB_SetAllocator
-JSONptr JSONLIB_AllocateNullJSON(const char* name, JSONptr parent);
 
 // NOTE: @Jon
 // Adds a node as a child of another node
@@ -552,6 +548,7 @@ JSONLIB_int_t JSONLIB_ParseInteger(JSONLIB_TOKENS* container)
 
 		switch (type)
 		{
+			default: break;
 			case JSONLIB_0: break;
 			case JSONLIB_1: num += 1; break;
 			case JSONLIB_2: num += 2; break;
@@ -661,17 +658,17 @@ JSONptr JSONLIB_ParseValue(JSONLIB_TOKENS* container, const char* name)
 		case JSONLIB_TRUE:
 		{
 			container->processed++;
-			return JSONLIB_AllocateBooleanJSON(name, NULL, 1);
+			return JSONLIB_AllocateJSON(name, NULL, JSONLIB_TRUE_TAG);
 		}
 		case JSONLIB_FALSE:
 		{
 			container->processed++;
-			return JSONLIB_AllocateBooleanJSON(name, NULL, 0);
+			return JSONLIB_AllocateJSON(name, NULL, JSONLIB_FALSE_TAG);
 		}
 		case JSONLIB_NULL:
 		{
 			container->processed++;
-			return JSONLIB_AllocateNullJSON(name, NULL);
+			return JSONLIB_AllocateJSON(name, NULL, JSONLIB_NULL_TAG);
 		}
 		case JSONLIB_0:
 		case JSONLIB_1:
@@ -892,54 +889,35 @@ void JSONLIB_FreeJSON(JSONptr json)
 	JSONLIB_Deallocate(json);
 }
 
-JSONptr JSONLIB_AllocateJSON(const char* name, JSONptr parent)
+JSONptr JSONLIB_AllocateJSON(const char* name, JSONptr parent, const u8 tags)
 {
 	JSONptr allocJSON = JSONLIB_Allocate(sizeof(JSON));
 	allocJSON->name = name;
 	allocJSON->parent = parent;
 	allocJSON->valueCount = 0;
 	allocJSON->values = NULL;
-	allocJSON->tags = 0;
+	allocJSON->tags = tags;
 	return allocJSON;
 }
 
 JSONptr JSONLIB_AllocateIntegerJSON(const char* name, JSONptr parent, const JSONLIB_int_t integer)
 {
-	JSONptr allocJSON = JSONLIB_AllocateJSON(name, parent);
+	JSONptr allocJSON = JSONLIB_AllocateJSON(name, parent, JSONLIB_INTEGER_TAG);
 	allocJSON->integer = integer;
-	allocJSON->tags = JSONLIB_INTEGER_TAG;
 	return allocJSON;
 }
 
 JSONptr JSONLIB_AllocateStringJSON(const char* name, JSONptr parent, const char* string)
 {
-	JSONptr allocJSON = JSONLIB_AllocateJSON(name, parent);
+	JSONptr allocJSON = JSONLIB_AllocateJSON(name, parent, JSONLIB_STRING_TAG);
 	allocJSON->string = string;
-	allocJSON->tags = JSONLIB_STRING_TAG;
-	return allocJSON;
-}
-
-JSONptr JSONLIB_AllocateBooleanJSON(const char* name, JSONptr parent, const u8 isTrue)
-{
-	JSONptr allocJSON = JSONLIB_AllocateJSON(name, parent);
-	allocJSON->integer = 0;
-	allocJSON->tags = isTrue != 0 ? JSONLIB_TRUE_TAG : JSONLIB_FALSE_TAG;
-	return allocJSON;
-}
-
-JSONptr JSONLIB_AllocateNullJSON(const char* name, JSONptr parent)
-{
-	JSONptr allocJSON = JSONLIB_AllocateJSON(name, parent);
-	allocJSON->integer = 0;
-	allocJSON->tags = JSONLIB_NULL_TAG;
 	return allocJSON;
 }
 
 JSONptr JSONLIB_AllocateDecimalJSON(const char* name, JSONptr parent, const JSONLIB_float_t decimal)
 {
-	JSONptr allocJSON = JSONLIB_AllocateJSON(name, parent);
+	JSONptr allocJSON = JSONLIB_AllocateJSON(name, parent, JSONLIB_DECIMAL_TAG);
 	allocJSON->decimal = decimal;
-	allocJSON->tags = JSONLIB_DECIMAL_TAG;
 	return allocJSON;
 }
 
