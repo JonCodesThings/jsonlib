@@ -2,7 +2,6 @@
 #include <include/jsonlib/json.h>
 
 #include <assert.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "json_test_allocator.h"
