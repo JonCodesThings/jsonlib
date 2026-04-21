@@ -589,6 +589,7 @@ JSONLIB_float_t JSONLIB_ParseDecimal(JSONLIB_TOKENS* container)
 	// Multiplier used once we've extracted all of the data
 	JSONLIB_float_t mantissaMultiplier = 1;
 
+	// Store which component we're modifying in the loop
 	JSONLIB_int_t* part = &exponent;
 	while (container->processed < container->count)
 	{
@@ -598,6 +599,7 @@ JSONLIB_float_t JSONLIB_ParseDecimal(JSONLIB_TOKENS* container)
 			break;
 		}
 
+		// Switch to mantissa if we hit a decimal point
 		if (type == JSONLIB_DOT)
 		{
 			container->processed++;
@@ -743,10 +745,9 @@ JSONptr JSONLIB_ParseArray(JSONLIB_TOKENS* container, const char* name)
 	}
 
 	// Array of pointers to parsed values
-	JSONptr	arrayObj = JSONLIB_Allocate(sizeof(JSON));
-	arrayObj->name = name;
-	arrayObj->valueCount = arraySize;
+	JSONptr	arrayObj = JSONLIB_AllocateJSON(name, NULL, JSONLIB_ARRAY_TAG);
 	arrayObj->values = JSONLIB_Allocate(sizeof(JSON*) * arraySize);
+	arrayObj->valueCount = arraySize;
 
 	JSONLIB_size_t arrayIter = 0;
 	while (container->processed < container->count)
@@ -786,12 +787,7 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container, const char* name)
 		return NULL;
 	}
 
-	JSONptr parsedObj = JSONLIB_Allocate(sizeof(JSON));
-	parsedObj->name = name;
-	parsedObj->tags = JSONLIB_OBJECT_TAG;
-	parsedObj->values = NULL;
-	parsedObj->valueCount = 0;
-
+	JSONptr parsedObj = JSONLIB_AllocateJSON(name, NULL, JSONLIB_OBJECT_TAG);
 	while (container->processed < container->count)
 	{
 		const enum JSONLIB_TOKEN_TYPE type = container->tokens[container->processed].type;
@@ -822,7 +818,15 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKENS* container, const char* name)
 		// Might make this a two-step process, figure out the number of values first and then allocate them once
 		// Pretty sure this approach would lead to fragmentation
 		const JSONLIB_size_t valueCount = parsedObj->valueCount + 1;
-		parsedObj->values = JSONLIB_Allocate(sizeof(JSON) * valueCount);
+		JSON** newValues = JSONLIB_Allocate(sizeof(JSON) * valueCount);
+		JSON** oldValues = parsedObj->values;
+
+		for (JSONLIB_size_t copyIter = 0; copyIter < valueCount - 1; copyIter++)
+		{
+			newValues[copyIter] = oldValues[copyIter];
+		}
+		parsedObj->values = newValues;
+		JSONLIB_Deallocate(oldValues);
 		parsedObj->values[valueCount - 1] = parsedValue;
 		parsedObj->valueCount = valueCount;
 	}
