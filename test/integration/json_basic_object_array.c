@@ -4,11 +4,11 @@
 #include <assert.h>
 #include <string.h>
 
-#include "json_test_allocator.h"
+#include "../util/json_test_allocator.h"
 
 int main()
 {
-	const char* str = "{\"object\":{\"value\":12}}";
+	const char* str = "{\"array\":[{},{},{}]}";
 
 	InitTESTAllocatorContext();
 	JSONLIB_SetAllocator(TESTAllocate, TESTDeallocate);
@@ -19,23 +19,11 @@ int main()
 
 	assert(json->valueCount == 1);
 
-	assert(json->values[0]->tags & JSONLIB_OBJECT_TAG);
+	JSON* array = json->values[0];
 
-	JSON* object = json->values[0];
+	assert(array->valueCount == 3);
 
-	assert(object->valueCount == 1);
-
-	assert(object->tags & JSONLIB_OBJECT_TAG);
-
-	assert(!strcmp(object->name, "object"));
-
-	JSON* value = object->values[0];
-
-	assert(value->tags & JSONLIB_INTEGER_TAG);
-
-	assert(!strcmp(value->name, "value"));
-
-	assert(value->integer == 12);
+	assert(!strcmp(array->name, "array"));
 
 	const char* jsonStr = JSONLIB_MakeJSON(json, 0);
 

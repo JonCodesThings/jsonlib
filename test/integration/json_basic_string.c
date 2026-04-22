@@ -2,13 +2,14 @@
 #include <include/jsonlib/json.h>
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include "json_test_allocator.h"
+#include "../util/json_test_allocator.h"
 
 int main()
 {
-	const char* str = "[\"bananas\",\"concert\",\"hmm\"]";
+	const char* str = "{\"string\":\"bananas\"}";
 
 	InitTESTAllocatorContext();
 	JSONLIB_SetAllocator(TESTAllocate, TESTDeallocate);
@@ -17,29 +18,11 @@ int main()
 
 	assert(json != NULL);
 
-	assert(json->name == NULL);
+	assert(json->valueCount == 1);
 
-	assert(json->valueCount == 3);
-
-	assert(json->values != NULL);
-
-	assert(json->values[0] != NULL);
-
-	assert(json->values[0]->string != NULL);
+	assert(!strcmp(json->values[0]->name, "string"));
 
 	assert(!strcmp(json->values[0]->string, "bananas"));
-
-	assert(json->values[1] != NULL);
-
-	assert(json->values[1]->string != NULL);
-
-	assert(!strcmp(json->values[1]->string, "concert"));
-
-	assert(json->values[2] != NULL);
-
-	assert(json->values[2]->string != NULL);
-
-	assert(!strcmp(json->values[2]->string, "hmm"));
 
 	const char* jsonStr = JSONLIB_MakeJSON(json, 0);
 

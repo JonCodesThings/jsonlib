@@ -4,11 +4,11 @@
 #include <assert.h>
 #include <string.h>
 
-#include "json_test_allocator.h"
+#include "../util/json_test_allocator.h"
 
 int main()
 {
-	const char* str = "{\"value\":null}";
+	const char* str = "{\"boolean\":false}";
 
 	InitTESTAllocatorContext();
 	JSONLIB_SetAllocator(TESTAllocate, TESTDeallocate);
@@ -19,11 +19,9 @@ int main()
 
 	assert(json->valueCount == 1);
 
-	assert(!strcmp(json->values[0]->name, "value"));
+	assert(!strcmp(json->values[0]->name, "boolean"));
 
-	assert(json->values[0]->valueCount == 0);
-
-	assert(json->values[0]->values == NULL);
+	assert((json->values[0]->tags & JSONLIB_FALSE_TAG));
 
 	const char* jsonStr = JSONLIB_MakeJSON(json, 0);
 

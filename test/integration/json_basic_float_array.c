@@ -4,11 +4,11 @@
 #include <assert.h>
 #include <string.h>
 
-#include "json_test_allocator.h"
+#include "../util/json_test_allocator.h"
 
 int main()
 {
-	const char* str = "{\"float\":0.14}";
+	const char* str = "{\"array\":[3.14,27.3245,77.43535678]}";
 
 	InitTESTAllocatorContext();
 	JSONLIB_SetAllocator(TESTAllocate, TESTDeallocate);
@@ -19,20 +19,26 @@ int main()
 
 	assert(json->valueCount == 1);
 
-	assert(!strcmp(json->values[0]->name, "float"));
+	JSON* array = json->values[0];
 
-	assert(json->values[0]->decimal == 0.14f);
+	assert(array->valueCount == 3);
+
+	assert(!strcmp(array->name, "array"));
 
 	const char* jsonStr = JSONLIB_MakeJSON(json, 0);
 
 	assert(jsonStr != NULL);
 
-	if (strcmp(str, jsonStr))
-	{
-		JSONLIB_FreeJSON(json);
-		json = JSONLIB_ParseJSON(jsonStr, (u32)strlen(jsonStr));
-		assert(json->values[0]->decimal == 0.14f);
-	}
+	assert(!strcmp(str, jsonStr));
+	
+	JSONLIB_FreeJSON(json);
+
+	json = JSONLIB_ParseJSON(jsonStr, (u32)strlen(jsonStr));
+	
+	array = json->values[0];
+	assert(array->values[0]->decimal == 3.14f);
+	assert(array->values[1]->decimal == 27.3245f);
+	assert(array->values[2]->decimal == 77.43535678f);
 
 	JSONLIB_ClearJSON((void*)jsonStr);
 
