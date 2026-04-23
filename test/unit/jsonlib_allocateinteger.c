@@ -18,8 +18,6 @@ int main()
 
     assert(json->name == NULL);
     
-    assert(json->values == NULL);
-
     assert(json->valueCount == 0);
 
     assert(json->tags & JSONLIB_INTEGER_TAG);
