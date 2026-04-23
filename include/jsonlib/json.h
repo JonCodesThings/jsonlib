@@ -279,10 +279,20 @@ void JSONLIB_SetAllocator(JSONLIB_ALLOC alloc, JSONLIB_DEALLOC dealloc)
 
 void JSONLIB_PushToken(JSONLIB_TOKEN_CONTAINER_t* container, enum JSONLIB_TOKEN_TYPE type, const JSONLIB_size_t inputPos)
 {
+	if (container == NULL || container->tokens == NULL)
+	{
+		return;
+	}
+
 	const u32 currentTokenCount = container->count;
 	if (currentTokenCount + 1 > container->capacity)
 	{
 		JSONLIB_TOKEN* newTokens = JSONLIB_Allocate(sizeof(JSONLIB_TOKEN) * container->capacity * 2);
+		if (!newTokens)
+		{
+			return;
+		}
+
 		container->capacity *= 2;
 
 		for (JSONLIB_size_t copyIter = 0; copyIter < currentTokenCount; copyIter++)
@@ -370,8 +380,21 @@ JSONLIB_TOKEN_CONTAINER_t JSONLIB_TokeniseString(const char* str, const JSONLIB_
 	container.count = 0;
 	container.capacity = 2;
 	container.processed = 0;
-	container.tokens = JSONLIB_Allocate(sizeof(JSONLIB_TOKEN)* container.capacity);
 	container.inputStr = str;
+
+	if (str == NULL)
+	{
+		container.tokens = NULL;
+		container.capacity = 0;
+		return container;	
+	}
+
+	container.tokens = JSONLIB_Allocate(sizeof(JSONLIB_TOKEN)* container.capacity);
+	if (container.tokens == NULL)
+	{
+		container.capacity = 0;
+		return container;
+	};
 
 	for (JSONLIB_size_t iter = 0; iter < strLength; iter++)
 	{
@@ -464,6 +487,11 @@ const char* JSONLIB_ParseString(JSONLIB_TOKEN_CONTAINER_t* container)
 	// This string is NULL-terminated hence the additional char allocated
 	const JSONLIB_size_t parsedStrLength = strEnd->inputPos - strStart->inputPos - 1;
 	char* parsedStr = JSONLIB_Allocate(sizeof(char) * parsedStrLength + 1); 
+	if (!parsedStr)
+	{
+		return NULL;
+	}
+
 	for (JSONLIB_size_t copyIter = 0; copyIter < parsedStrLength + 1; copyIter++)
 	{
 		parsedStr[copyIter] = container->inputStr[strStart->inputPos + copyIter + 1];
@@ -735,6 +763,11 @@ JSONptr JSONLIB_ParseArray(JSONLIB_TOKEN_CONTAINER_t* container, const char* nam
 
 	// Array of pointers to parsed values
 	JSONptr	arrayObj = JSONLIB_AllocateJSON(name, JSONLIB_ARRAY_TAG);
+	if (!arrayObj)
+	{
+		return NULL;
+	}
+
 	arrayObj->values = JSONLIB_Allocate(sizeof(JSONptr) * arraySize);
 	arrayObj->valueCount = arraySize;
 
@@ -778,6 +811,11 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKEN_CONTAINER_t* container, const char* na
 	}
 
 	JSONptr parsedObj = JSONLIB_AllocateJSON(name, JSONLIB_OBJECT_TAG);
+	if (parsedObj == NULL)
+	{
+		return NULL;
+	}
+
 	while (container->processed < container->count)
 	{
 		const enum JSONLIB_TOKEN_TYPE type = container->tokens[container->processed].type;
@@ -834,6 +872,16 @@ JSONptr JSONLIB_ParseObject(JSONLIB_TOKEN_CONTAINER_t* container, const char* na
 JSONptr JSONLIB_ParseJSON(const char *jsonString, const JSONLIB_size_t stringLength)
 {
 	JSONLIB_TOKEN_CONTAINER_t container = JSONLIB_TokeniseString(jsonString, stringLength);
+	if (container.tokens == NULL)
+	{
+		return NULL;
+	}
+
+	if (container.processed != 0 || container.count == 0)
+	{
+		return NULL;
+	}
+
 	const enum JSONLIB_TOKEN_TYPE type = container.tokens[container.processed].type;
 	JSONptr root = NULL;
 
@@ -864,6 +912,11 @@ const char *JSONLIB_MakeJSON(const JSONptr json, const u8 flags)
 
 void JSONLIB_FreeJSON(JSONptr json)
 {
+	if (json == NULL)
+	{
+		return;
+	}
+
 	if (json->values != NULL && json->valueCount > 0)
 	{
 		for (JSONLIB_size_t valIter = 0; valIter < json->valueCount; valIter++)
@@ -891,6 +944,12 @@ void JSONLIB_FreeJSON(JSONptr json)
 JSONptr JSONLIB_AllocateJSON(const char* name, const u8 tags)
 {
 	JSONptr allocJSON = JSONLIB_Allocate(sizeof(JSON));
+
+	if (allocJSON == NULL)
+	{
+		return NULL;
+	}
+
 	allocJSON->name = name;
 	allocJSON->valueCount = 0;
 	allocJSON->values = NULL;
