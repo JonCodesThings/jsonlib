@@ -64,24 +64,12 @@ typedef i32 JSONLIB_int_t;
 typedef f32 JSONLIB_float_t;
 #endif
 
-// NOTE: @Jon
 // Function pointer typedefs for allocation functions
 typedef void* (*JSONLIB_ALLOC)(JSONLIB_size_t numBytes);
 typedef void(*JSONLIB_DEALLOC)(void* bytes);
 
-// NOTE: @Jon
-// Constants used for tagging nodes to indicate what type they are representing
-extern const u8 JSONLIB_STRING_TAG;
-extern const u8 JSONLIB_INTEGER_TAG;
-extern const u8 JSONLIB_DECIMAL_TAG;
-extern const u8 JSONLIB_ARRAY_TAG;
-extern const u8 JSONLIB_OBJECT_TAG;
-extern const u8 JSONLIB_BOOLEAN_TAG;
-extern const u8 JSONLIB_NULL_TAG;
-
 typedef struct JSON* JSONptr;
 
-// NOTE: @Jon
 // Node in the JSON tree
 typedef struct JSON
 {
@@ -105,6 +93,7 @@ typedef struct JSON
 	};
 } JSON;
 
+// Constants used for tagging nodes to indicate what type they are representing
 extern const u8 JSONLIB_STRING_TAG;
 extern const u8 JSONLIB_INTEGER_TAG;
 extern const u8 JSONLIB_DECIMAL_TAG;
@@ -114,56 +103,41 @@ extern const u8 JSONLIB_TRUE_TAG;
 extern const u8 JSONLIB_FALSE_TAG;
 extern const u8 JSONLIB_NULL_TAG;
 
-// NOTE: @Jon
+// Serialization flags
+extern const u8 JSONLIB_PRETTYIFY_FLAG;
+
+
 // Sets the internal allocation functions that the library will use to allocate/free memory
 void JSONLIB_SetAllocator(JSONLIB_ALLOC alloc, JSONLIB_DEALLOC dealloc);
 
-// NOTE: @Jon
 // Parses a JSON string
 // The string need not be null-terminated
 JSONptr JSONLIB_ParseJSON(const char *jsonString, JSONLIB_size_t stringLength);
 
-// NOTE: @Jon
 // Constructs a JSON string from a given tree
-// The returnded string will be null-terminated
+// The returnded string will be null-terminated and allocated with the allocation functions specified with JSONLIB_SetAllocator
 const char *JSONLIB_MakeJSON(const JSONptr json, const u8 flags);
 
-// NOTE: @Jon
 // Allocates a JSON node
 // Uses the allocation functions specified with JSONLIB_SetAllocator
 JSONptr  JSONLIB_AllocateJSON(const char* name, const u8 tags);
-
-// NOTE: @Jon
-// Allocates a JSON node
-// Uses the allocation functions specified with JSONLIB_SetAllocator
 JSONptr  JSONLIB_AllocateIntegerJSON(const char* name, const JSONLIB_int_t integer);
-
-// NOTE: @Jon
-// Allocates a JSON node
-// Uses the allocation functions specified with JSONLIB_SetAllocator
 JSONptr  JSONLIB_AllocateStringJSON(const char* name, const char* string);
-
-// NOTE: @Jon
-// Allocates a JSON node
-// Uses the allocation functions specified with JSONLIB_SetAllocator
 JSONptr  JSONLIB_AllocateDecimalJSON(const char* name, JSONLIB_float_t decimal);
 
-// NOTE: @Jon
 // Adds a node as a child of another node
 void JSONLIB_AddValueJSON(JSONptr json, JSONptr val);
 
-// NOTE: @Jon
 // Gets a value by name from a given node
 JSONptr JSONLIB_GetValueJSON(const char *name, JSONLIB_size_t nameLength, JSONptr json);
 
-// NOTE: @Jon
 // Frees memory associated with a given node and all of its children
 void JSONLIB_FreeJSON(JSONptr json);
 
-// NOTE: @Jon
 // Frees memory associated with a given string
 // N.B. This will set the str pointer to NULL
 void JSONLIB_ClearJSON(const char *str);
+
 #endif
 
 #ifdef JSONLIB_IMPLEMENTATION
@@ -176,7 +150,6 @@ void JSONLIB_ClearJSON(const char *str);
 //  - Way of enforcing precision of floating point string outputs
 //  - Make C standard library dependencies optional (allow for user-provided alternatives to these functions)
 
-// NOTE: @Jon
 // Tags for JSON nodes
 const u8 JSONLIB_STRING_TAG = 1 << 0;
 const u8 JSONLIB_INTEGER_TAG = 1 << 1;
@@ -187,7 +160,6 @@ const u8 JSONLIB_TRUE_TAG = 1 << 5;
 const u8 JSONLIB_FALSE_TAG = 1 << 6;
 const u8 JSONLIB_NULL_TAG = 1 << 7;
 
-// NOTE: @Jon
 // JSON Token Types
 // We're taking advantage of only supporting UTF-8 chars for some of the values
 enum JSONLIB_TOKEN_TYPE
@@ -246,7 +218,6 @@ static enum JSONLIB_TOKEN_TYPE JSONLIB_TOKEN_TRUE_PATTERN[] 	= { JSONLIB_t, JSON
 static enum JSONLIB_TOKEN_TYPE JSONLIB_TOKEN_FALSE_PATTERN[] 	= { JSONLIB_f, JSONLIB_a, JSONLIB_l, JSONLIB_s, JSONLIB_e };
 static enum JSONLIB_TOKEN_TYPE JSONLIB_TOKEN_NULL_PATTERN[] 	= { JSONLIB_n, JSONLIB_u, JSONLIB_l, JSONLIB_l };
 
-// NOTE: @Jon
 // Struct to store token information for the JSON
 typedef struct JSONLIB_TOKEN
 {
