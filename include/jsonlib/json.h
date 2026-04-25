@@ -740,13 +740,12 @@ JSONptr JSONLIB_ParseArray(JSONLIB_TOKEN_CONTAINER_t* container, const char* nam
 	}
 
 	arrayObj->values = JSONLIB_Allocate(sizeof(JSONptr) * arraySize);
-	arrayObj->valueCount = arraySize;
+	arrayObj->valueCount = 0;
 
-	JSONLIB_size_t arrayIter = 0;
 	while (container->processed < container->count)
 	{
 		JSONptr parsedValue = JSONLIB_ParseValue(container, NULL);
-		arrayObj->values[arrayIter++] = parsedValue;
+		arrayObj->values[arrayObj->valueCount++] = parsedValue;
 
 		const enum JSONLIB_TOKEN_TYPE type = container->tokens[container->processed].type;
 		if (type == JSONLIB_RIGHT_SQUARE_BRACKET)
