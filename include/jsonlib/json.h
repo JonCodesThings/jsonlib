@@ -704,6 +704,8 @@ JSONLIB_size_t JSONLIB_GetArrayLength(JSONLIB_TOKEN_CONTAINER_t* container)
 		return arraySize;
 	}
 
+	// TODO: @Jon
+	// Fix this to account for arrays of objects AND nested arrays
 	while (tokenIter < container->count)
 	{
 		if (container->tokens[tokenIter].type == JSONLIB_COMMA)
